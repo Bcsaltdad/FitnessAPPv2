@@ -46,7 +46,7 @@ st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 if not st.session_state.user_id:
     st.title("Welcome to Fitness Tracker")
     tab1, tab2 = st.tabs(["Login", "Register"])
-    
+
     with tab1:
         with st.form("login_form"):
             username = st.text_input("Username")
@@ -59,7 +59,7 @@ if not st.session_state.user_id:
                     st.rerun()
                 else:
                     st.error("Invalid credentials")
-    
+
     with tab2:
         with st.form("register_form"):
             new_username = st.text_input("Choose Username")
@@ -145,7 +145,7 @@ with tabs[0]:
                 st.session_state.user_id = None
                 st.session_state.username = None
                 st.rerun()
-                
+
         active_plans = db.get_active_plans(st.session_state.user_id)
 
         if not active_plans:
@@ -353,6 +353,8 @@ with tabs[2]:  # Create New Plan
             )
 
             st.success("Your personalized plan has been created!")
+            st.session_state.view = 'plans'
+            st.rerun()
 
             # Show a preview of the first week
             st.write("### Preview of Week 1")
@@ -396,20 +398,20 @@ if st.sidebar.button("Test Recommendation Engine"):
     recommender = WorkoutRecommender(db)
     test_user_id = 1  # Using default user ID
     recommendation = recommender.get_daily_recommendation(test_user_id)
-    
+
     st.write("### Recommendation Test Results")
     st.json(recommendation)
-    
+
     if recommendation.get('workouts'):
         st.write("### Suggested Workouts")
         for workout in recommendation['workouts']:
             st.write(f"- {workout['title']}: {workout.get('sets', 'N/A')} sets × {workout.get('reps', 'N/A')} reps")
-    
+
     if recommendation.get('adjustments'):
         st.write("### Suggested Adjustments")
         for adjustment in recommendation['adjustments']:
             st.write(f"- {adjustment}")
-            
+
     if recommendation.get('muscle_recovery'):
         st.write("### Muscle Recovery Status")
         for muscle, status in recommendation['muscle_recovery'].items():
