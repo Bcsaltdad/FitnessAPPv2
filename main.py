@@ -1,14 +1,75 @@
 import streamlit as st
 import pandas as pd
 import json
+import hashlib
 from exercise_utils import ExerciseDatabase
 from datetime import datetime
 from workout_planner import WorkoutPlanner
 
+# Initialize session state for user management
+if 'user_id' not in st.session_state:
+    st.session_state.user_id = None
+if 'username' not in st.session_state:
+    st.session_state.username = None
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def authenticate_user(username, password):
+    hashed_pwd = hash_password(password)
+    db.cursor.execute('SELECT id FROM users WHERE username = ? AND password = ?', (username, hashed_pwd))
+    result = db.cursor.fetchone()
+    return result[0] if result else None
+
+def create_user(username, password):
+    hashed_pwd = hash_password(password)
+    try:
+        db.cursor.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, hashed_pwd))
+        db.conn.commit()
+        return db.cursor.lastrowid
+    except:
+        return None
+
 # Initialize exercise database
 db = ExerciseDatabase('fitness.db')
 
+# Initialize users table if not exists
+db.cursor.execute('''CREATE TABLE IF NOT EXISTS users 
+                    (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     username TEXT UNIQUE,
+                     password TEXT)''')
+db.conn.commit()
+
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+
+# Login/Register UI
+if not st.session_state.user_id:
+    st.title("Welcome to Fitness Tracker")
+    tab1, tab2 = st.tabs(["Login", "Register"])
+    
+    with tab1:
+        with st.form("login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            if st.form_submit_button("Login"):
+                user_id = authenticate_user(username, password)
+                if user_id:
+                    st.session_state.user_id = user_id
+                    st.session_state.username = username
+                    st.rerun()
+                else:
+                    st.error("Invalid credentials")
+    
+    with tab2:
+        with st.form("register_form"):
+            new_username = st.text_input("Choose Username")
+            new_password = st.text_input("Choose Password", type="password")
+            if st.form_submit_button("Register"):
+                if create_user(new_username, new_password):
+                    st.success("Registration successful! Please login.")
+                else:
+                    st.error("Username already exists")
+    st.stop()
 
 # Initialize session state for navigation
 if 'view' not in st.session_state:
@@ -76,8 +137,16 @@ tabs = st.tabs(["My Plans", "Exercise Library", "Create New Plan"])
 
 with tabs[0]:
     if st.session_state.view == 'plans':
-        st.header("My Active Plans")
-        active_plans = db.get_active_plans()
+        col1, col2 = st.columns([8,2])
+        with col1:
+            st.header("My Active Plans")
+        with col2:
+            if st.button("Logout"):
+                st.session_state.user_id = None
+                st.session_state.username = None
+                st.rerun()
+                
+        active_plans = db.get_active_plans(st.session_state.user_id)
 
         if not active_plans:
             st.info("No active plans found. Create a new plan to get started!")

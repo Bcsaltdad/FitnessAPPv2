@@ -68,10 +68,32 @@ class ExerciseDatabase:
         self.cursor.execute(query, (plan_id,))
         return [self._row_to_dict(row) for row in self.cursor.fetchall()]
 
-    def get_active_plans(self):
-        """Get all active fitness plans"""
-        self.cursor.execute('SELECT * FROM fitness_plans WHERE is_active = 1')
-        return [self._row_to_dict(row) for row in self.cursor.fetchall()]
+    def get_active_plans(self, user_id):
+        """Get active fitness plans for specific user"""
+        self.cursor.execute('SELECT * FROM fitness_plans WHERE is_active = 1 AND user_id = ?', (user_id,))
+        plans = [self._row_to_dict(row) for row in self.cursor.fetchall()]
+        
+        # Add delete button for each plan
+        for plan in plans:
+            col1, col2, col3, col4 = st.columns([3, 1, 0.5, 0.5])
+            with col1:
+                st.subheader(f"📋 {plan['name']}")
+            with col2:
+                st.write(f"Goal: {plan['goal']}")
+            with col3:
+                if st.button("✏️", key=f"edit_btn_{plan['id']}"):
+                    st.session_state[f"edit_goal_{plan['id']}"] = True
+            with col4:
+                if st.button("🗑️", key=f"delete_btn_{plan['id']}"):
+                    self.delete_plan(plan['id'])
+                    st.rerun()
+        return plans
+        
+    def delete_plan(self, plan_id):
+        """Delete a fitness plan"""
+        self.cursor.execute('DELETE FROM fitness_plans WHERE id = ?', (plan_id,))
+        self.cursor.execute('DELETE FROM plan_workouts WHERE plan_id = ?', (plan_id,))
+        self.conn.commit()
 
     def toggle_plan_status(self, plan_id: int, is_active: bool):
         """Toggle plan active status"""
