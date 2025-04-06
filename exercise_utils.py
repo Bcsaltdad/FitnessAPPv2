@@ -170,6 +170,17 @@ class ExerciseDatabase:
         )
         self.conn.commit()
 
+    def get_user_profile(self, user_id):
+        """Get user profile from database. Returns default if not found."""
+        # For now, return default values since we don't have user profiles table yet
+        return {
+            "experience_level": "Beginner",
+            "age": 30,
+            "weight": 70,  # kg
+            "height": 175,  # cm
+            "fitness_score": 3  # On a scale of 1-10
+        }
+
     def close(self):
         """Close the database connection"""
         self.conn.close()
