@@ -386,65 +386,46 @@ with tabs[2]:  # Create New Plan
                                      max_value=120,
                                      value=45,
                                      step=5)
-
-if st.button("Create Personalized Plan"):
-    with st.spinner("Creating your personalized workout plan..."):
-        # Create workout generator instance
-        planner = WorkoutPlanner(db.conn)
-        generator = WorkoutGenerator(db, planner, WorkoutEngine(db))
-        
-        # Generate the plan
-        success, result = generator.create_workout_plan(
-            user_id=st.session_state.user_id,
-            plan_name=plan_name,
-            plan_goal=plan_goal,
-            duration_weeks=duration,
-            workouts_per_week=workouts_per_week,
-            equipment_access=equipment_access,
-            limitations=limitations,
-            experience_level=experience_level,
-            preferred_cardio=preferred_cardio,
-            specific_focus=specific_focus,
-            time_per_workout=time_per_workout
-        )
-        
-        if success:
-            plan_id = result
-            st.success("Your personalized plan has been created!")
+    if st.button("Create Personalized Plan"):
+        with st.spinner("Creating your personalized workout plan..."):
+            # Create workout generator instance
+            planner = WorkoutPlanner(db.conn)
+            generator = WorkoutGenerator(db, planner, WorkoutEngine(db))
             
-            # Preview first week
-            st.write("### Preview of Week 1")
-            workouts = db.get_plan_workouts(plan_id, 1, None)
+            # Generate the plan
+            success, result = generator.create_workout_plan(
+                user_id=st.session_state.user_id,
+                plan_name=plan_name,
+                plan_goal=plan_goal,
+                duration_weeks=duration,
+                workouts_per_week=workouts_per_week,
+                equipment_access=equipment_access,
+                limitations=limitations,
+                experience_level=experience_level,
+                preferred_cardio=preferred_cardio,
+                specific_focus=specific_focus,
+                time_per_workout=time_per_workout
+            )
             
-            # Group by day
-            days = {}
-            for workout in workouts:
-                day_num = workout['day']
-                if day_num not in days:
-                    days[day_num] = []
-                days[day_num].append(workout)
-            
-            # Show each day's workouts
-            day_names = {
-                1: "Monday", 2: "Tuesday", 3: "Wednesday", 
-                4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"
-            }
-            
-            for day_num in sorted(days.keys()):
-                with st.expander(f"{day_names[day_num]} ({len(days[day_num])} exercises)"):
-                    for workout in days[day_num]:
-                        st.write(f"**{workout['title']}**: {workout['target_sets']} sets × {workout['target_reps']} reps")
-            
-            # Navigate back to plans view
-            st.session_state.view = 'plans'
-            st.rerun()
-        else:
-            # If result is a plan_id, a basic plan was created
-            if isinstance(result, int):
+            if success:
                 plan_id = result
-                st.warning("Basic plan created. Some advanced features couldn't be applied.")
+                st.success("Your personalized plan has been created!")
+                
+                # Preview first week
+                st.write("### Preview of Week 1")
+                workouts = db.get_plan_workouts(plan_id, 1, None)
+                
+                # Group by day and display
+                # Display code...
+                
+                # Navigate back to plans view
                 st.session_state.view = 'plans'
                 st.rerun()
             else:
-                # Result is an error message
-                st.error(f"Error creating workout plan: {result}")
+                if isinstance(result, int):
+                    plan_id = result
+                    st.warning("Basic plan created. Some advanced features couldn't be applied.")
+                    st.session_state.view = 'plans'
+                    st.rerun()
+                else:
+                    st.error(f"Error creating workout plan: {result}")
