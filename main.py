@@ -133,6 +133,7 @@ def go_to_day_view(plan_id, week, day):
 
 
 # Main UI
+st.session_state.view = 'plans'  # Set default view
 tabs = st.tabs(["My Plans", "Exercise Library", "Create New Plan"])
 
 with tabs[0]:

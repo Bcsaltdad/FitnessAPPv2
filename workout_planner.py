@@ -21,9 +21,9 @@ class WorkoutPlanner:
     def _select_exercises_for_focus(self, day_focus, equipment, limitations, experience_level, goal):
         """Select appropriate exercises for a specific workout focus"""
         exercise_count = {
-            "Beginner": {"Compound": 3, "Isolation": 3, "Cardio": 2, "Mobility": 2},
-            "Intermediate": {"Compound": 4, "Isolation": 4, "Cardio": 2, "Mobility": 2},
-            "Advanced": {"Compound": 5, "Isolation": 5, "Cardio": 3, "Mobility": 2}
+            "Beginner": {"Compound": 4, "Isolation": 4, "Cardio": 3, "Mobility": 2},
+            "Intermediate": {"Compound": 5, "Isolation": 5, "Cardio": 3, "Mobility": 3},
+            "Advanced": {"Compound": 6, "Isolation": 6, "Cardio": 4, "Mobility": 3}
         }.get(experience_level, {"Compound": 2, "Isolation": 2, "Cardio": 1, "Mobility": 1})
 
         # Adjust based on goal
