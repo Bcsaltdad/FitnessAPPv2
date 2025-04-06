@@ -46,6 +46,7 @@ def setup_database():
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS fitness_plans (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
         name TEXT NOT NULL,
         goal TEXT,
         duration_weeks INTEGER,

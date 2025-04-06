@@ -103,10 +103,10 @@ class ExerciseDatabase:
         )
         self.conn.commit()
 
-    def create_fitness_plan(self, name: str, goal: str, duration_weeks: int, plan_details: str = None) -> int:
+    def create_fitness_plan(self, name: str, goal: str, duration_weeks: int, plan_details: str = None, user_id: int = None) -> int:
         self.cursor.execute(
-            'INSERT INTO fitness_plans (name, goal, duration_weeks, plan_details) VALUES (?, ?, ?, ?)',
-            (name, goal, duration_weeks, plan_details)
+            'INSERT INTO fitness_plans (name, goal, duration_weeks, plan_details, user_id) VALUES (?, ?, ?, ?, ?)',
+            (name, goal, duration_weeks, plan_details, user_id)
         )
         plan_id = self.cursor.lastrowid
 
