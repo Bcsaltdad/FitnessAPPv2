@@ -93,18 +93,31 @@ class ExerciseDatabase:
                              FOREIGN KEY(workout_id) REFERENCES plan_workouts(id),
                              FOREIGN KEY(user_id) REFERENCES users(id))''')
         
-        # Enhanced exercise attributes
-        self.cursor.execute('''ALTER TABLE exercises ADD COLUMN IF NOT EXISTS sports_focus TEXT''')
-        self.cursor.execute('''ALTER TABLE exercises ADD COLUMN IF NOT EXISTS primary_movement_pattern TEXT''')
-        self.cursor.execute('''ALTER TABLE exercises ADD COLUMN IF NOT EXISTS energy_system TEXT''')
-        self.cursor.execute('''ALTER TABLE exercises ADD COLUMN IF NOT EXISTS primary_benefit TEXT''')
-        self.cursor.execute('''ALTER TABLE exercises ADD COLUMN IF NOT EXISTS difficulty INTEGER''')
+        # Enhanced exercise attributes - safely add columns that might not exist
+        self._safe_add_column("exercises", "sports_focus", "TEXT")
+        self._safe_add_column("exercises", "primary_movement_pattern", "TEXT")
+        self._safe_add_column("exercises", "energy_system", "TEXT")
+        self._safe_add_column("exercises", "primary_benefit", "TEXT")
+        self._safe_add_column("exercises", "difficulty", "INTEGER")
         
         # Enhanced fitness plans
-        self.cursor.execute('''ALTER TABLE fitness_plans ADD COLUMN IF NOT EXISTS primary_sport TEXT''')
-        self.cursor.execute('''ALTER TABLE fitness_plans ADD COLUMN IF NOT EXISTS training_phase TEXT''')
+        self._safe_add_column("fitness_plans", "primary_sport", "TEXT")
+        self._safe_add_column("fitness_plans", "training_phase", "TEXT")
         
         self.conn.commit()
+    
+    def _safe_add_column(self, table, column, column_type):
+        """Safely add a column to a table if it doesn't exist"""
+        try:
+            # Check if column exists
+            self.cursor.execute(f"PRAGMA table_info({table})")
+            columns = [info[1] for info in self.cursor.fetchall()]
+            
+            # Add column if it doesn't exist
+            if column not in columns:
+                self.cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
+        except sqlite3.Error as e:
+            print(f"Error adding column {column} to {table}: {e}")
     
     def get_exercises_by_goal(self, goal):
         """Get exercises filtered by goal"""
