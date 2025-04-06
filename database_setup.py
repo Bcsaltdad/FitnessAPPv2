@@ -79,6 +79,17 @@ def setup_database():
         completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (plan_workout_id) REFERENCES plan_workouts (id)
     )''')
+    
+    # Create progression tracking table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS progression_tracking (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        exercise_id INTEGER,
+        progress_rating FLOAT,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (exercise_id) REFERENCES exercises (id)
+    )''')
 
     conn.commit()
     return conn, cursor

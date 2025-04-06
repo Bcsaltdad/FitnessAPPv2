@@ -167,42 +167,7 @@ with tabs[1]:  # Exercise Library
                 for i, instruction in enumerate(instructions, 1):
                     st.write(f"{i}. {instruction.strip()}")
 
-with tabs[2]:  # Create New Plan
-    st.header("Create Your Personalized Fitness Plan")
-    plan_name = st.text_input("Plan Name")
-    plan_goal = st.selectbox(
-        "What's your primary fitness goal?",
-        ["Sports and Athletics", "Body Building", "Body Weight Fitness",
-         "Weight Loss", "Mobility Exclusive"]
-    )
-    workouts_per_week = st.selectbox(
-        "How many workouts can you commit to per week?",
-        options=list(range(1, 15)),
-        index=2
-    )
-    duration = st.number_input("Program duration (weeks)", 
-                             min_value=4, value=8, max_value=52)
-    equipment_access = st.multiselect(
-        "What equipment do you have access to?",
-        ["Full Gym", "Dumbbells", "Resistance Bands", "Pull-up Bar", "No Equipment"],
-        default=["Full Gym"]
-    )
-    limitations = st.multiselect(
-        "Do you have any physical limitations or areas to avoid?",
-        ["None", "Lower Back", "Knees", "Shoulders", "Neck"],
-        default=["None"]
-    )
 
-    if st.button("Create Plan"):
-        plan_details = {
-            "workouts_per_week": workouts_per_week,
-            "equipment_access": equipment_access,
-            "limitations": limitations
-        }
-        plan_id = db.create_fitness_plan(plan_name, plan_goal, duration, 
-                                       json.dumps(plan_details))
-        st.success("Your personalized plan has been created!")
-        st.rerun()
 
 with tabs[2]:  # Create New Plan
     st.header("Create Your Personalized Fitness Plan")

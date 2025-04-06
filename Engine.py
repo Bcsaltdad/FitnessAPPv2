@@ -328,4 +328,69 @@ class WorkoutRecommender:
                 continue
 
             last_date = datetime.strptime(last_trained, "%Y-%m-%d")
-            days_since =
+            days_since = (datetime.now() - last_date).days
+            recovery_status[muscle] = f"{days_since} days"
+
+        return recovery_status
+    def _get_recent_workouts(self, user_id):
+        pass
+    def _generate_default_workout(self, user_profile):
+        pass
+
+
+class WorkoutEngine:
+    def __init__(self, db_connection):
+        self.db = db_connection
+
+    def get_workout_details(self, workouts, user_id=1):
+        """Get detailed workout information with progress tracking"""
+        result_workouts = []
+        for workout in workouts:
+            self.db.cursor.execute(
+                """
+                SELECT * FROM exercises WHERE id = ?
+                """,
+                (workout['exercise_id'],)
+            )
+            exercise = self.db.cursor.fetchone()
+
+            if exercise:
+                workout_detail = dict(workout)
+                workout_detail.update({
+                    'exercise_type': exercise['type'],
+                    'equipment': exercise['equipment'],
+                    'muscle_group': exercise['muscle_group'],
+                    'level': exercise['level']
+                })
+                result_workouts.append(workout_detail)
+
+        return result_workouts
+
+    def calculate_suggested_progression(self, workout_history):
+        """Calculate suggested progression based on workout history"""
+        if not workout_history:
+            return {
+                'sets': 3,
+                'reps': '8-12',
+                'weight': 0,
+                'notes': 'Start with a weight you can handle for all sets'
+            }
+
+        last_workout = workout_history[-1]
+        completed_all = last_workout['sets_completed'] >= last_workout['target_sets']
+        weight_used = last_workout.get('weight', 0)
+
+        if completed_all:
+            return {
+                'sets': last_workout['sets_completed'],
+                'reps': last_workout['reps_completed'],
+                'weight': weight_used * 1.05,  # 5% increase
+                'notes': 'Increase weight by 5% from last session'
+            }
+        else:
+            return {
+                'sets': last_workout['target_sets'],
+                'reps': last_workout['target_reps'],
+                'weight': weight_used,
+                'notes': 'Maintain current weight and focus on form'
+            }

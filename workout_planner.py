@@ -1,10 +1,13 @@
 import sqlite3
 
 class WorkoutPlanner:
-    def __init__(self, db_path="workout_data.db"):
-        self.db = sqlite3.connect(db_path)
+    def __init__(self, db_connection=None):
+        if db_connection:
+            self.db = db_connection
+        else:
+            self.db = sqlite3.connect('fitness.db')
         self.db.row_factory = sqlite3.Row
-        self.db.cursor = self.db.cursor()
+        self.cursor = self.db.cursor()
 
     def create_workout_plan(self, days, focus, equipment, limitations, experience_level, goal):
         """Generates a workout plan based on user input."""
