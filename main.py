@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 import json
 import hashlib
+import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
 from exercise_utils import ExerciseDatabase
-from datetime import datetime
 from workout_planner import WorkoutPlanner
-from Engine import WorkoutRecommender, WorkoutEngine
 from WorkoutGenerator import WorkoutGenerator
 
 # Initialize session state for user management
@@ -44,6 +44,25 @@ db.cursor.execute('''CREATE TABLE IF NOT EXISTS users
                      username TEXT UNIQUE,
                      password TEXT)''')
 db.conn.commit()
+
+# Create default sports profiles if not exist
+sport_profiles = db.get_sports_list()
+if not sport_profiles:
+    # Add some default sports profiles
+    default_sports = ["Running", "Golf", "Soccer", "Swimming", "Basketball", "Tennis", 
+                      "Weightlifting", "CrossFit", "Bodybuilding"]
+    # Create a planner instance to generate generic profiles
+    temp_planner = WorkoutPlanner(db.conn)
+    for sport in default_sports:
+        profile = temp_planner._create_generic_profile(sport)
+        db.create_sports_profile(
+            sport=sport,
+            required_movements=profile["required_movements"],
+            energy_systems=profile["energy_systems"],
+            primary_muscle_groups=profile["primary_muscle_groups"],
+            injury_risk_areas=profile.get("injury_risk_areas", []),
+            training_phase_focus=profile["training_phase_focus"]
+        )
 
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
@@ -103,27 +122,18 @@ with st.sidebar:
     if st.session_state.dev_mode:
         st.sidebar.markdown("## Developer Tools")
         if st.sidebar.button("Test Recommendation Engine"):
-            recommender = WorkoutRecommender(db)
-            test_user_id = st.session_state.user_id  # Use current user instead of hardcoded ID
-            recommendation = recommender.get_daily_recommendation(test_user_id)
+            # Simplified recommendation test for now
+            user_profile = db.get_user_profile(st.session_state.user_id)
+            
+            if user_profile:
+                st.write("### User Profile")
+                st.json(user_profile)
+            else:
+                st.write("No user profile found. Create a workout plan first.")
 
-            st.write("### Recommendation Test Results")
-            st.json(recommendation)
-
-            if recommendation.get('workouts'):
-                st.write("### Suggested Workouts")
-                for workout in recommendation['workouts']:
-                    st.write(f"- {workout['title']}: {workout.get('sets', 'N/A')} sets × {workout.get('reps', 'N/A')} reps")
-
-            if recommendation.get('adjustments'):
-                st.write("### Suggested Adjustments")
-                for adjustment in recommendation['adjustments']:
-                    st.write(f"- {adjustment}")
-
-            if recommendation.get('muscle_recovery'):
-                st.write("### Muscle Recovery Status")
-                for muscle, status in recommendation['muscle_recovery'].items():
-                    st.write(f"- {muscle}: {status}")
+            # Show current plans
+            active_plans = db.get_active_plans(st.session_state.user_id)
+            st.write(f"User has {len(active_plans)} active plans")
 
         # Add more developer tools here as needed
         if st.sidebar.button("Reset User Data"):
@@ -135,11 +145,17 @@ with st.sidebar:
             user_count = db.cursor.execute("SELECT COUNT(*) FROM users").fetchone()[0]
             plan_count = db.cursor.execute("SELECT COUNT(*) FROM fitness_plans").fetchone()[0]
             workout_count = db.cursor.execute("SELECT COUNT(*) FROM workout_logs").fetchone()[0]
+            progress_count = db.cursor.execute("SELECT COUNT(*) FROM progress_tracking").fetchone()[0]
+            exercise_count = db.cursor.execute("SELECT COUNT(*) FROM exercises").fetchone()[0]
+            sport_count = db.cursor.execute("SELECT COUNT(*) FROM sports_profiles").fetchone()[0]
 
             st.write("### Database Statistics")
             st.write(f"Total Users: {user_count}")
             st.write(f"Total Plans: {plan_count}")
             st.write(f"Total Logged Workouts: {workout_count}")
+            st.write(f"Total Progress Entries: {progress_count}")
+            st.write(f"Total Exercises: {exercise_count}")
+            st.write(f"Sport Profiles: {sport_count}")
 
 def show_workout_log(workout):
     st.subheader(workout['title'])
@@ -162,10 +178,36 @@ def show_workout_log(workout):
                                      1000.0,
                                      0.0,
                                      step=5.0)
+        notes = st.text_area("Notes (optional)", "")
 
         if st.form_submit_button("Save"):
             weight_kg = weight_lbs / 2.20462
             db.log_workout(workout['id'], sets, reps, weight_kg)
+            
+            # Also log detailed progress for better analysis
+            exercises_completed = [{
+                "id": workout['id'],
+                "title": workout['title'],
+                "sets": sets,
+                "reps": reps,
+                "weight": weight_lbs,
+                "body_part": workout['body_part']
+            }]
+            
+            performance_metrics = {
+                "total_volume": sets * reps * weight_lbs,
+                "completion_percentage": 100 * (sets * reps) / (workout['target_sets'] * workout['target_reps']),
+                "weight_used": weight_lbs
+            }
+            
+            db.log_workout_progress(
+                st.session_state.user_id,
+                workout['id'],
+                exercises_completed,
+                performance_metrics,
+                notes
+            )
+            
             st.success("Workout logged!")
             st.session_state.view = 'day_summary'
 
@@ -190,9 +232,13 @@ def go_to_day_view(plan_id, week, day):
     st.session_state.selected_week = week
     st.session_state.selected_day = day
 
+def go_to_progress():
+    st.session_state.view = 'progress'
+    
 # Main UI
-tabs = st.tabs(["My Plans", "Exercise Library", "Create New Plan"])
-with tabs[0]:
+tabs = st.tabs(["My Plans", "Exercise Library", "Create New Plan", "Progress Tracking"])
+
+with tabs[0]:  # My Plans
     if st.session_state.view == 'plans':
         col1, col2 = st.columns([8, 2])
         with col1:
@@ -209,6 +255,8 @@ with tabs[0]:
             col1, col2, col3, col4 = st.columns([3, 1, 0.5, 0.5])
             with col1:
                 st.subheader(f"📋 {plan['name']}")
+                if plan.get('primary_sport'):
+                    st.caption(f"Sport focus: {plan['primary_sport']}")
             with col2:
                 if f"edit_goal_{plan['id']}" not in st.session_state:
                     st.session_state[f"edit_goal_{plan['id']}"] = False
@@ -227,7 +275,7 @@ with tabs[0]:
                     st.session_state[f"edit_goal_{plan['id']}"] = True
             with col4:
                 if st.button("❌", key=f"delete_btn_{plan['id']}"):
-                    db.make_plan_inactive(plan['id'])  # This function needs to be implemented in your database logic
+                    db.make_plan_inactive(plan['id'])
                     st.success(f"{plan['name']} has been made inactive.")
                     st.rerun()  # Refresh the state to reflect changes
             summary = db.get_plan_summary(plan['id'])
@@ -261,9 +309,12 @@ with tabs[0]:
                         go_to_week_view(plan['id'], week)
 
     elif st.session_state.view == 'week_summary':
-        plan = db.get_active_plans(st.session_state.user_id)[0]  # Get the selected plan
+        # Get the selected plan details
+        db.cursor.execute("SELECT * FROM fitness_plans WHERE id = ?", (st.session_state.selected_plan,))
+        plan = db.cursor.fetchone()
+        
         st.button("← Back to Plans", on_click=go_to_plans)
-        st.header(f"Week {st.session_state.selected_week} Schedule")
+        st.header(f"{plan['name']} - Week {st.session_state.selected_week} Schedule")
 
         days = {
             1: "Monday",
@@ -315,20 +366,65 @@ with tabs[0]:
 
 with tabs[1]:  # Exercise Library
     st.header("Exercise Library")
-    goal = st.selectbox("Filter by Goal",
-                        ["Strength", "Cardio", "Flexibility"])
-    exercises = db.get_exercises_by_goal(goal)
+    
+    # More detailed filtering
+    col1, col2 = st.columns(2)
+    with col1:
+        goal = st.selectbox("Filter by Goal",
+                        ["All", "Strength", "Cardio", "Flexibility", "Power", "Mobility"])
+    with col2:
+        body_part = st.selectbox("Filter by Body Part",
+                         ["All", "Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Full Body"])
+    
+    # Optional sports-specific filter
+    sport_filter = st.selectbox("Filter by Sport", ["All"] + db.get_sports_list())
+    
+    # Build the query
+    query = "SELECT * FROM exercises WHERE 1=1"
+    params = []
+    
+    if goal != "All":
+        query += " AND exercise_type LIKE ?"
+        params.append(f"%{goal}%")
+        
+    if body_part != "All":
+        query += " AND body_part LIKE ?"
+        params.append(f"%{body_part}%")
+        
+    if sport_filter != "All":
+        query += " AND sports_focus LIKE ?"
+        params.append(f"%{sport_filter}%")
+    
+    # Execute the query
+    db.cursor.execute(query, params)
+    exercises = db.cursor.fetchall()
 
-    for exercise in exercises:
-        with st.expander(f"📋 {exercise['title']}", expanded=False):
-            st.write(f"**Description:** {exercise['description']}")
-            st.write(f"**Equipment:** {exercise['equipment']}")
-            st.write(f"**Level:** {exercise['level']}")
-            if exercise.get('instructions'):
-                st.write("**Instructions:**")
-                instructions = exercise['instructions'].split(',')
-                for i, instruction in enumerate(instructions, 1):
-                    st.write(f"{i}. {instruction.strip()}")
+    if not exercises:
+        st.info("No exercises found with the selected filters.")
+    else:
+        for exercise in exercises:
+            with st.expander(f"📋 {exercise['title']}", expanded=False):
+                st.write(f"**Description:** {exercise['description']}")
+                st.write(f"**Equipment:** {exercise.get('equipment', 'Not specified')}")
+                st.write(f"**Level:** {exercise.get('level', 'Not specified')}")
+                
+                # Show sports-specific information if available
+                if exercise.get('sports_focus'):
+                    try:
+                        sports = json.loads(exercise['sports_focus'])
+                        if sports:
+                            st.write(f"**Sports:** {', '.join(sports)}")
+                    except:
+                        pass
+                
+                if exercise.get('primary_movement_pattern'):
+                    st.write(f"**Movement Pattern:** {exercise['primary_movement_pattern']}")
+                
+                if exercise.get('instructions'):
+                    st.write("**Instructions:**")
+                    instructions = exercise['instructions'].split(',')
+                    for i, instruction in enumerate(instructions, 1):
+                        st.write(f"{i}. {instruction.strip()}")
 
 with tabs[2]:  # Create New Plan
     st.header("Create Your Personalized Fitness Plan")
@@ -365,6 +461,12 @@ with tabs[2]:  # Create New Plan
             "Do you have any physical limitations or areas to avoid?",
             ["None", "Lower Back", "Knees", "Shoulders", "Neck"],
             default=["None"])
+        
+        # Add sports selection
+        primary_sport = st.selectbox(
+            "Do you have a specific sport you're training for?",
+            ["None"] + db.get_sports_list()
+        )
 
     # More detailed options in an expander
     with st.expander("Advanced Options"):
@@ -380,52 +482,195 @@ with tabs[2]:  # Create New Plan
                 "Endurance", "Balance", "None"
             ],
             default=["None"])
+        
+        # Add training phase selection for sports
+        if primary_sport != "None":
+            training_phase = st.selectbox(
+                "Current training phase",
+                ["General", "Off-Season", "Pre-Season", "In-Season", "Post-Season"]
+            )
+        else:
+            training_phase = "General"
 
         time_per_workout = st.slider("Time available per workout (minutes)",
                                      min_value=15,
                                      max_value=120,
                                      value=45,
                                      step=5)
+    
     if st.button("Create Personalized Plan"):
-        with st.spinner("Creating your personalized workout plan..."):
-            # Create workout generator instance
-            planner = WorkoutPlanner(db.conn)
-            generator = WorkoutGenerator(db, planner, WorkoutEngine(db))
-            
-            # Generate the plan
-            success, result = generator.create_workout_plan(
-                user_id=st.session_state.user_id,
-                plan_name=plan_name,
-                plan_goal=plan_goal,
-                duration_weeks=duration,
-                workouts_per_week=workouts_per_week,
-                equipment_access=equipment_access,
-                limitations=limitations,
-                experience_level=experience_level,
-                preferred_cardio=preferred_cardio,
-                specific_focus=specific_focus,
-                time_per_workout=time_per_workout
-            )
-            
-            if success:
-                plan_id = result
-                st.success("Your personalized plan has been created!")
+        if not plan_name:
+            st.error("Please enter a plan name.")
+        else:
+            with st.spinner("Creating your personalized workout plan..."):
+                # Create workout generator instance
+                planner = WorkoutPlanner(db.conn)
+                generator = WorkoutGenerator(db, planner, None)  # Engine can be None for now
                 
-                # Preview first week
-                st.write("### Preview of Week 1")
-                workouts = db.get_plan_workouts(plan_id, 1, None)
+                # If primary sport is "None", set it to None
+                sport = None if primary_sport == "None" else primary_sport
                 
-                # Group by day and display
-                # Display code...
+                # Add sport to specific_focus if selected
+                if sport and sport not in specific_focus and specific_focus != ["None"]:
+                    specific_focus.append(sport)
                 
-                # Navigate back to plans view
-                st.session_state.view = 'plans'
-                st.rerun()
-            else:
-                if isinstance(result, int):
+                # Generate the plan
+                success, result = generator.create_workout_plan(
+                    user_id=st.session_state.user_id,
+                    plan_name=plan_name,
+                    plan_goal=plan_goal,
+                    duration_weeks=duration,
+                    workouts_per_week=workouts_per_week,
+                    equipment_access=equipment_access,
+                    limitations=limitations,
+                    experience_level=experience_level,
+                    preferred_cardio=preferred_cardio,
+                    specific_focus=specific_focus,
+                    time_per_workout=time_per_workout
+                )
+                
+                if success:
                     plan_id = result
-                    st.warning("Basic plan created. Some advanced features couldn't be applied.")
+                    st.success("Your personalized plan has been created!")
+                    
+                    # Preview first week
+                    st.write("### Preview of Week 1")
+                    workouts = db.get_plan_workouts(plan_id, 1, None)
+                    
+                    # Group by day
+                    days_dict = {}
+                    for workout in workouts:
+                        day = workout['day']
+                        if day not in days_dict:
+                            days_dict[day] = []
+                        days_dict[day].append(workout)
+                    
+                    # Display workouts by day
+                    day_names = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 
+                                4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
+                    
+                    for day, day_workouts in sorted(days_dict.items()):
+                        st.write(f"**{day_names[day]}** - {len(day_workouts)} exercises")
+                        for workout in day_workouts[:3]:  # Show just a few exercises as preview
+                            st.write(f"- {workout['title']}: {workout['target_sets']} sets × {workout['target_reps']} reps")
+                        if len(day_workouts) > 3:
+                            st.write(f"- ...and {len(day_workouts) - 3} more exercises")
+                    
+                    # Navigate back to plans view
                     st.session_state.view = 'plans'
-                    st.rerun()
+                    st.button("Go to My Plans", on_click=go_to_plans)
                 else:
-                    st.error(f"Error creating workout plan: {result}")
+                    if isinstance(result, int):
+                        plan_id = result
+                        st.warning("Basic plan created. Some advanced features couldn't be applied.")
+                        st.session_state.view = 'plans'
+                        st.button("Go to My Plans", on_click=go_to_plans)
+                    else:
+                        st.error(f"Error creating workout plan: {result}")
+
+with tabs[3]:  # Progress Tracking
+    st.header("Progress Tracking")
+    
+    # Get user profile to check if it exists
+    user_profile = db.get_user_profile(st.session_state.user_id)
+    if not user_profile:
+        st.info("Complete your profile by creating a workout plan to enable detailed progress tracking.")
+    else:
+        # Time period selection
+        col1, col2 = st.columns(2)
+        with col1:
+            time_period = st.selectbox(
+                "Time Period", 
+                ["Last 7 Days", "Last 30 Days", "Last 90 Days", "All Time"]
+            )
+        with col2:
+            if user_profile.get('primary_sport'):
+                st.write(f"Primary Sport: {user_profile['primary_sport']}")
+            else:
+                st.write("No primary sport selected")
+        
+        # Calculate date range
+        end_date = datetime.now()
+        if time_period == "Last 7 Days":
+            start_date = end_date - timedelta(days=7)
+        elif time_period == "Last 30 Days":
+            start_date = end_date - timedelta(days=30)
+        elif time_period == "Last 90 Days":
+            start_date = end_date - timedelta(days=90)
+        else:
+            start_date = None
+        
+        # Get progress history
+        progress_history = db.get_progress_history(st.session_state.user_id, start_date, end_date)
+        
+        if not progress_history:
+            st.info("No workout data logged in the selected period. Complete some workouts to see progress.")
+        else:
+            # Analyze progress data
+            total_workouts = len(progress_history)
+            total_exercises = sum(len(entry['exercises_completed']) for entry in progress_history)
+            avg_volume = sum(entry['performance_metrics'].get('total_volume', 0) for entry in progress_history) / total_workouts if total_workouts > 0 else 0
+            
+            # Display summary metrics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Workouts", total_workouts)
+            with col2:
+                st.metric("Total Exercises", total_exercises)
+            with col3:
+                st.metric("Avg Volume per Workout", f"{avg_volume:.1f} lbs")
+            
+            # Body part frequency analysis
+            body_parts = {}
+            for entry in progress_history:
+                for exercise in entry['exercises_completed']:
+                    if 'body_part' in exercise:
+                        parts = exercise['body_part'].split('/')
+                        for part in parts:
+                            part = part.strip()
+                            body_parts[part] = body_parts.get(part, 0) + 1
+            
+            # Create a visualization
+            if body_parts:
+                st.subheader("Body Part Focus")
+                
+                # Sort by frequency and limit to top 8
+                sorted_parts = sorted(body_parts.items(), key=lambda x: x[1], reverse=True)[:8]
+                
+                # Create bar chart using matplotlib
+                fig, ax = plt.subplots(figsize=(10, 5))
+                parts = [p[0] for p in sorted_parts]
+                counts = [p[1] for p in sorted_parts]
+                ax.bar(parts, counts, color='skyblue')
+                ax.set_xlabel('Body Part')
+                ax.set_ylabel('Frequency')
+                ax.set_title('Body Part Training Frequency')
+                plt.xticks(rotation=45, ha='right')
+                plt.tight_layout()
+                
+                st.pyplot(fig)
+            
+            # Recent workouts
+            st.subheader("Recent Workouts")
+            for i, entry in enumerate(progress_history[:5]):
+                with st.expander(f"Workout on {entry['workout_date'][:10]}", expanded=(i==0)):
+                    # Show exercises
+                    for j, exercise in enumerate(entry['exercises_completed']):
+                        st.write(f"{j+1}. **{exercise['title']}**: {exercise['sets']} sets × {exercise['reps']} reps @ {exercise['weight']} lbs")
+                    
+                    # Show notes if any
+                    if entry.get('notes'):
+                        st.write(f"**Notes:** {entry['notes']}")
+                    
+                    # Show metrics
+                    metrics = entry['performance_metrics']
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"**Total Volume:** {metrics.get('total_volume', 0):.1f} lbs")
+                    with col2:
+                        st.write(f"**Completion:** {metrics.get('completion_percentage', 0):.1f}%")
+
+# Initialize Engine class for workout recommendations (placeholder for now)
+class WorkoutEngine:
+    def __init__(self, db):
+        self.db = db
