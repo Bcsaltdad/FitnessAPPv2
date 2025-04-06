@@ -42,7 +42,7 @@ def setup_database():
         FOREIGN KEY (exercise_id) REFERENCES exercises (id)
     )''')
 
-    # Create fitness plans table
+    # Create fitness plans table with plan_details column
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS fitness_plans (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
