@@ -1,7 +1,27 @@
-
 import streamlit as st
 import sqlite3
 import pandas as pd
+import http.client
+
+# API connection details
+API_KEY = "9943fa8927msh9f5dd0b4afc6aa8p1166c3jsnd4ce488a3caf"  # Replace with your actual API key
+API_HOST = "exercisedb.p.rapidapi.com"
+
+def fetch_exercises():
+    conn = http.client.HTTPSConnection(API_HOST)
+    headers = {
+        'x-rapidapi-key': API_KEY,
+        'x-rapidapi-host': API_HOST
+    }
+    conn.request("GET", "/status", headers=headers) #This API endpoint needs to be updated to fetch exercises.  Placeholder for now.
+    res = conn.getresponse()
+    data = res.read()
+    try:
+        exercises = eval(data.decode("utf-8")) #Assuming the API returns a list of dictionaries.  Adjust accordingly.
+        return exercises
+    except:
+        return []
+
 
 # Database setup
 conn = sqlite3.connect("workouts.db", check_same_thread=False)
@@ -17,6 +37,17 @@ cursor.execute("""
         sets INTEGER,
         reps INTEGER,
         weight FLOAT
+    )
+""")
+
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS exercise_library (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE,
+        category TEXT,
+        description TEXT,
+        recommended_sets INTEGER,
+        recommended_reps INTEGER
     )
 """)
 conn.commit()
@@ -79,7 +110,7 @@ if not df.empty:
 
     # Progress Charts
     st.subheader("Progress Tracking")
-    
+
     # Weight progression per exercise
     if st.checkbox("Show Weight Progression"):
         exercise_choice = st.selectbox("Select Exercise", df["exercise"].unique())
@@ -92,12 +123,12 @@ if not df.empty:
     for client in clients:
         with st.expander(f"📊 {client}'s Progress"):
             client_df = df[df["client"] == client].drop(columns=["id"])
-            
+
             # Client stats
             st.write("Recent Activity")
-            st.data_editor(client_df.sort_values("date", ascending=False).head(), 
+            st.data_editor(client_df.sort_values("date", ascending=False).head(),
                          use_container_width=True, height=150)
-            
+
             # Category breakdown
             cat_data = client_df["category"].value_counts()
             st.write("Workout Category Distribution")
@@ -105,6 +136,31 @@ if not df.empty:
 
 else:
     st.info("No workouts logged yet. Start by adding a workout!")
+
+# Exercise Library Management
+with st.expander("📚 Exercise Library Management"):
+    if st.button("Import Exercises from API"):
+        with st.spinner("Fetching exercises from API..."):
+            try:
+                exercises = fetch_exercises()
+                for exercise in exercises:
+                    # Map API data to our database structure
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO exercise_library 
+                        (name, category, description, recommended_sets, recommended_reps)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (
+                        exercise.get('name', ''),
+                        exercise.get('bodyPart', ''),
+                        exercise.get('instructions', ''),
+                        3,  # Default recommended sets
+                        12  # Default recommended reps
+                    ))
+                conn.commit()
+                st.success(f"Successfully imported {len(exercises)} exercises!")
+            except Exception as e:
+                st.error(f"Failed to fetch exercises: {str(e)}")
+
 
 # Close database connection
 conn.close()
