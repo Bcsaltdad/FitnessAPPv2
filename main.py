@@ -66,32 +66,64 @@ with tabs[0]:  # My Plans
         st.info("No active plans found. Create a new plan to get started!")
 
     for plan in active_plans:
-        with st.expander(f"📋 {plan['name']} - {plan['goal']}", expanded=True):
-            # Plan Summary Metrics
-            summary = db.get_plan_summary(plan['id'])
-            if summary:
-                cols = st.columns(4)
-                with cols[0]:
-                    st.metric("Total Weeks", plan['duration_weeks'])
-                with cols[1]:
-                    completed_workouts = sum(week['exercises_completed'] or 0 for week in summary)
-                    st.metric("Completed Workouts", completed_workouts)
-                with cols[2]:
-                    avg_weight = sum(week['avg_weight'] or 0 for week in summary) / len(summary) if summary else 0
-                    st.metric("Avg Weight (kg)", f"{avg_weight:.1f}")
-                with cols[3]:
-                    days_worked = sum(week['days_worked'] or 0 for week in summary)
-                    st.metric("Days Worked", days_worked)
+        st.subheader(f"📋 {plan['name']} - {plan['goal']}")
+        
+        # Plan Summary Metrics
+        summary = db.get_plan_summary(plan['id'])
+        if summary:
+            cols = st.columns(4)
+            with cols[0]:
+                st.metric("Total Weeks", plan['duration_weeks'])
+            with cols[1]:
+                completed_workouts = sum(week['exercises_completed'] or 0 for week in summary)
+                st.metric("Completed Workouts", completed_workouts)
+            with cols[2]:
+                avg_weight = sum(week['avg_weight'] or 0 for week in summary) / len(summary) if summary else 0
+                st.metric("Avg Weight (lbs)", f"{(avg_weight * 2.20462):.1f}")
+            with cols[3]:
+                days_worked = sum(week['days_worked'] or 0 for week in summary)
+                st.metric("Days Worked", days_worked)
 
-            # Week Selection
-            week = st.selectbox("Select Week", range(1, plan['duration_weeks'] + 1), key=f"week_{plan['id']}")
-
-            # Get workouts for the selected week
-            all_workouts = []
+        # Schedule View
+        st.write("### Weekly Schedule")
+        weeks_container = st.container()
+        for week in range(1, plan['duration_weeks'] + 1):
+            st.write(f"#### Week {week}")
+            
+            # Create schedule grid
+            schedule = {}
             for day in range(1, 8):
                 workouts = db.get_plan_workouts(plan['id'], week, day)
                 if workouts:
-                    all_workouts.extend((day, w) for w in workouts)
+                    schedule[day] = workouts
+
+            # Display schedule
+            for day, workouts in schedule.items():
+                day_names = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 
+                           4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
+                st.write(f"**{day_names[day]}**")
+                
+                for workout in workouts:
+                    with st.container():
+                        cols = st.columns([3, 1, 1])
+                        with cols[0]:
+                            st.write(f"- {workout['title']}")
+                        with cols[1]:
+                            st.write(f"{workout['target_sets']}×{workout['target_reps']}")
+                        with cols[2]:
+                            if st.button("Log", key=f"log_{workout['id']}"):
+                                with st.form(f"log_form_{workout['id']}"):
+                                    sets = st.number_input("Sets Completed", 1, 10, workout['target_sets'])
+                                    reps = st.number_input("Reps Completed", 1, 30, workout['target_reps'])
+                                    weight_lbs = st.number_input("Weight (lbs)", 0.0, 1000.0, 0.0, step=5.0)
+                                    
+                                    if st.form_submit_button("Save"):
+                                        # Convert lbs to kg for storage
+                                        weight_kg = weight_lbs / 2.20462
+                                        db.log_workout(workout['id'], sets, reps, weight_kg)
+                                        st.success("Workout logged!")
+                                        st.rerun()
+            st.markdown("---")
 
             # Group workouts by type
             workout_types = ["Power", "Strength", "Agility", "Core", "Conditioning"]
