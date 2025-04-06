@@ -1,7 +1,7 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
-from api_handler import fetch_exercises, get_exercise_by_id
+from api_handler import fetch_exercises, get_exercise_by_id, get_all_exercises
 
 
 # Database setup
@@ -25,7 +25,10 @@ cursor.execute("""
     CREATE TABLE IF NOT EXISTS exercise_library (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE,
-        category TEXT,
+        bodyPart TEXT,
+        equipment TEXT,
+        gifUrl TEXT,
+        target TEXT,
         description TEXT,
         recommended_sets INTEGER,
         recommended_reps INTEGER
@@ -123,16 +126,18 @@ with st.expander("📚 Exercise Library Management"):
     if st.button("Import Exercises from API"):
         with st.spinner("Fetching exercises from API..."):
             try:
-                exercises = fetch_exercises()
+                exercises = get_all_exercises()
                 for exercise in exercises:
-                    # Map API data to our database structure
                     cursor.execute("""
                         INSERT OR IGNORE INTO exercise_library 
-                        (name, category, description, recommended_sets, recommended_reps)
-                        VALUES (?, ?, ?, ?, ?)
+                        (name, bodyPart, equipment, gifUrl, target, instructions, recommended_sets, recommended_reps)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         exercise.get('name', ''),
                         exercise.get('bodyPart', ''),
+                        exercise.get('equipment', ''),
+                        exercise.get('gifUrl', ''),
+                        exercise.get('target', ''),
                         exercise.get('instructions', ''),
                         3,  # Default recommended sets
                         12  # Default recommended reps
