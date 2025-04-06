@@ -131,8 +131,9 @@ with st.sidebar:
                 st.write("No user profile found. Create a workout plan first.")
 
             # Show current plans
-            active_plans = db.get_active_plans(st.session_state.user_id)
-            st.write(f"User has {len(active_plans)} active plans")
+            try:
+                active_plans = db.get_active_plans(st.session_state.user_id)
+                st.write(f"User has {len(active_plans)} active plans")
 
         # Add more developer tools here as needed
         if st.sidebar.button("Reset User Data"):
