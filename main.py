@@ -254,9 +254,10 @@ with tabs[0]:  # My Plans
             col1, col2, col3, col4 = st.columns([3, 1, 0.5, 0.5])
             with col1:
                 st.subheader(f"📋 {plan['name']}")
-                if plan.get('primary_sport'):
-                    st.caption(f"Sport focus: {plan['primary_sport']}")
-                else: 
+                try:
+                    if plan.get('primary_sport'):
+                        st.caption(f"Sport focus: {plan['primary_sport']}")
+                except: 
                     st.info("No active plans found. Create a new plan to get started!")
             with col2:
                 if f"edit_goal_{plan['id']}" not in st.session_state:
