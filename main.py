@@ -92,17 +92,13 @@ with tabs[1]:  # Fitness Plans
             key="goal_filter_plan"
         )
         
-        # Step 3: Experience Level
-        st.write("### Step 3: Experience Level")
-        experience = st.select_slider(
-            "What's your fitness experience level?",
-            options=["Beginner", "Intermediate", "Advanced"],
-            value="Intermediate"
+        # Step 3: Time Commitment
+        st.write("### Step 3: Time Commitment")
+        workouts_per_week = st.selectbox(
+            "How many workouts can you commit to per week?",
+            options=list(range(1, 15)),  # 1 to 14 workouts
+            index=2  # Default to 3 workouts
         )
-        
-        # Step 4: Time Commitment
-        st.write("### Step 4: Time Commitment")
-        workouts_per_week = st.slider("How many workouts can you commit to per week?", 2, 6, 3)
         duration = st.number_input("Program duration (weeks)", min_value=4, value=8, max_value=52)
         
         # Step 5: Equipment Access
@@ -124,7 +120,6 @@ with tabs[1]:  # Fitness Plans
         if st.button("Create Personalized Plan", use_container_width=True):
             # Store additional information in JSON format
             plan_details = {
-                "experience_level": experience,
                 "workouts_per_week": workouts_per_week,
                 "equipment_access": equipment_access,
                 "limitations": limitations
