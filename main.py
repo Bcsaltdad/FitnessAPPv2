@@ -3,6 +3,7 @@ import pandas as pd
 import json
 from exercise_utils import ExerciseDatabase
 from datetime import datetime
+from workout_planner import WorkoutPlanner
 
 # Initialize exercise database
 db = ExerciseDatabase('fitness.db')
@@ -202,6 +203,109 @@ with tabs[2]:  # Create New Plan
                                        json.dumps(plan_details))
         st.success("Your personalized plan has been created!")
         st.rerun()
+
+with tabs[2]:  # Create New Plan
+    st.header("Create Your Personalized Fitness Plan")
+
+    # Two columns for form organization
+    col1, col2 = st.columns(2)
+
+    with col1:
+        plan_name = st.text_input("Plan Name")
+        plan_goal = st.selectbox(
+            "What's your primary fitness goal?",
+            ["Sports and Athletics", "Body Building", "Body Weight Fitness",
+             "Weight Loss", "Mobility Exclusive"]
+        )
+        experience_level = st.selectbox(
+            "Your fitness experience level",
+            ["Beginner", "Intermediate", "Advanced"]
+        )
+        duration = st.number_input("Program duration (weeks)", 
+                                 min_value=4, value=8, max_value=52)
+
+    with col2:
+        workouts_per_week = st.selectbox(
+            "How many workouts can you commit to per week?",
+            options=list(range(1, 8)),
+            index=2
+        )
+        equipment_access = st.multiselect(
+            "What equipment do you have access to?",
+            ["Full Gym", "Dumbbells", "Resistance Bands", "Pull-up Bar", "No Equipment"],
+            default=["Full Gym"]
+        )
+        limitations = st.multiselect(
+            "Do you have any physical limitations or areas to avoid?",
+            ["None", "Lower Back", "Knees", "Shoulders", "Neck"],
+            default=["None"]
+        )
+
+    # More detailed options in an expander
+    with st.expander("Advanced Options"):
+        preferred_cardio = st.multiselect(
+            "Preferred cardio types",
+            ["Running", "Cycling", "Swimming", "Rowing", "Jump Rope", "HIIT", "None"],
+            default=["HIIT"]
+        )
+
+        specific_focus = st.multiselect(
+            "Any specific areas you want to focus on?",
+            ["Core Strength", "Upper Body", "Lower Body", "Explosiveness", 
+             "Endurance", "Balance", "None"],
+            default=["None"]
+        )
+
+        time_per_workout = st.slider(
+            "Time available per workout (minutes)",
+            min_value=15,
+            max_value=120,
+            value=45,
+            step=5
+        )
+
+    if st.button("Create Personalized Plan"):
+        with st.spinner("Creating your personalized workout plan..."):
+            # Save user profile first (if you implement this feature)
+            # db.update_user_profile(1, experience_level, height, weight, etc.)
+
+            plan_details = {
+                "workouts_per_week": workouts_per_week,
+                "equipment_access": equipment_access,
+                "limitations": limitations,
+                "preferred_cardio": preferred_cardio,
+                "specific_focus": specific_focus,
+                "time_per_workout": time_per_workout,
+                "experience_level": experience_level
+            }
+
+            plan_id = db.create_fitness_plan(plan_name, plan_goal, duration, 
+                                           json.dumps(plan_details))
+
+            st.success("Your personalized plan has been created!")
+
+            # Show a preview of the first week
+            st.write("### Preview of Week 1")
+            workouts = db.get_plan_workouts(plan_id, 1, None)
+
+            # Group by day
+            days = {}
+            for workout in workouts:
+                day_num = workout['day']
+                if day_num not in days:
+                    days[day_num] = []
+                days[day_num].append(workout)
+
+            # Show each day's workouts
+            day_names = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 
+                      4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
+
+            for day_num in sorted(days.keys()):
+                with st.expander(f"{day_names[day_num]} - {days[day_num][0]['description'].split('-')[0].strip()}"):
+                    for workout in days[day_num]:
+                        st.write(f"**{workout['title']}**: {workout['target_sets']} sets × {workout['target_reps']} reps")
+
+            st.button("Go to My Plans", on_click=go_to_plans)
 
 # Close database connection
 db.close()
