@@ -1,0 +1,19 @@
+def check_exercise_distribution(db_path="fitness.db"):
+        """Checks the number of exercises for each type in the database."""
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        query = """
+        SELECT exercise_type, COUNT(*) 
+        FROM exercises 
+        GROUP BY exercise_type
+        """
+        cursor.execute(query)
+        results = cursor.fetchall()
+
+        conn.close()
+
+        for exercise_type, count in results:
+            print(f"{exercise_type}: {count} exercises")
+
+    check_exercise_distribution()
