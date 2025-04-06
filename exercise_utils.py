@@ -8,7 +8,8 @@ class ExerciseDatabase:
 
     def get_all_exercises(self):
         self.cursor.execute('SELECT * FROM exercises')
-        return self.cursor.fetchall()
+        rows = self.cursor.fetchall()
+        return [self._row_to_dict(row) for row in rows]
 
     def save_media(self, file, filename):
         if not file:
