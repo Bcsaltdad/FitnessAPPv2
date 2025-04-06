@@ -387,7 +387,7 @@ with tabs[2]:  # Create New Plan
                                      value=45,
                                      step=5)
 
-    if st.button("Create Personalized Plan"):
+if st.button("Create Personalized Plan"):
     with st.spinner("Creating your personalized workout plan..."):
         # Create workout generator instance
         planner = WorkoutPlanner(db.conn)
