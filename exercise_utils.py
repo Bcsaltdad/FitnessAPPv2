@@ -150,21 +150,29 @@ class ExerciseDatabase:
     
     def get_plan_workouts(self, plan_id, week, day):
         """Get workouts for a specific plan, week, and day"""
-        if day:
-            self.cursor.execute('''
-                SELECT pw.*, e.*
-                FROM plan_workouts pw
-                JOIN exercises e ON pw.exercise_id = e.id
-                WHERE pw.plan_id = ? AND pw.week = ? AND pw.day = ?
-            ''', (plan_id, week, day))
-        else:
-            self.cursor.execute('''
-                SELECT pw.*, e.*
-                FROM plan_workouts pw
-                JOIN exercises e ON pw.exercise_id = e.id
-                WHERE pw.plan_id = ? AND pw.week = ?
-            ''', (plan_id, week))
-        return self.cursor.fetchall()
+        try:
+            if day is not None:  # Explicit check for None
+                self.cursor.execute('''
+                    SELECT pw.*, e.*
+                    FROM plan_workouts pw
+                    JOIN exercises e ON pw.exercise_id = e.id
+                    WHERE pw.plan_id = ? AND pw.week = ? AND pw.day = ?
+                ''', (plan_id, week, day))
+            else:
+                self.cursor.execute('''
+                    SELECT pw.*, e.*
+                    FROM plan_workouts pw
+                    JOIN exercises e ON pw.exercise_id = e.id
+                    WHERE pw.plan_id = ? AND pw.week = ?
+                ''', (plan_id, week))
+            
+            results = self.cursor.fetchall()
+            # Return empty list if no workouts found
+            return [dict(row) for row in results] if results else []
+        except sqlite3.Error as e:
+            print(f"Error fetching workouts for plan {plan_id}, week {week}, day {day}: {e}")
+            # Return empty list on error
+            return []
     
     def update_plan_goal(self, plan_id, new_goal):
         """Update the goal of a fitness plan"""
