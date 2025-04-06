@@ -6,6 +6,7 @@ from exercise_utils import ExerciseDatabase
 from datetime import datetime
 from workout_planner import WorkoutPlanner
 from Engine import WorkoutRecommender, WorkoutEngine
+from WorkoutGenerator import WorkoutGenerator
 
 # Initialize session state for user management
 if 'user_id' not in st.session_state:
@@ -387,368 +388,63 @@ with tabs[2]:  # Create New Plan
                                      step=5)
 
     if st.button("Create Personalized Plan"):
-        with st.spinner("Creating your personalized workout plan..."):
-            # Create plan details dictionary
-            plan_details = {
-                "workouts_per_week": workouts_per_week,
-                "equipment_access": equipment_access,
-                "limitations": limitations,
-                "preferred_cardio": preferred_cardio,
-                "specific_focus": specific_focus,
-                "time_per_workout": time_per_workout,
-                "experience_level": experience_level
+    with st.spinner("Creating your personalized workout plan..."):
+        # Create workout generator instance
+        planner = WorkoutPlanner(db.conn)
+        generator = WorkoutGenerator(db, planner, WorkoutEngine(db))
+        
+        # Generate the plan
+        success, result = generator.create_workout_plan(
+            user_id=st.session_state.user_id,
+            plan_name=plan_name,
+            plan_goal=plan_goal,
+            duration_weeks=duration,
+            workouts_per_week=workouts_per_week,
+            equipment_access=equipment_access,
+            limitations=limitations,
+            experience_level=experience_level,
+            preferred_cardio=preferred_cardio,
+            specific_focus=specific_focus,
+            time_per_workout=time_per_workout
+        )
+        
+        if success:
+            plan_id = result
+            st.success("Your personalized plan has been created!")
+            
+            # Preview first week
+            st.write("### Preview of Week 1")
+            workouts = db.get_plan_workouts(plan_id, 1, None)
+            
+            # Group by day
+            days = {}
+            for workout in workouts:
+                day_num = workout['day']
+                if day_num not in days:
+                    days[day_num] = []
+                days[day_num].append(workout)
+            
+            # Show each day's workouts
+            day_names = {
+                1: "Monday", 2: "Tuesday", 3: "Wednesday", 
+                4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"
             }
-
-            # Initialize workout planner and recommendation engine
-            planner = WorkoutPlanner(db.conn)
-            recommender = WorkoutRecommender(db)
-            engine = WorkoutEngine(db)
-
-            # Create distribution of days based on workouts_per_week
-            # For better workout scheduling based on muscle groups
-            focus_distribution = {}
-
-            if workouts_per_week <= 3:
-                # Full body approach for fewer workouts
-                focus_map = {
-                    1: {"Day 1": "Full Body"},
-                    2: {"Day 1": "Upper Body", "Day 2": "Lower Body"},
-                    3: {"Day 1": "Push/Chest/Shoulders", "Day 2": "Pull/Back/Arms", "Day 3": "Legs/Core"}
-                }
-                focus_distribution = focus_map.get(workouts_per_week, {})
-            elif workouts_per_week <= 5:
-                # Push/Pull/Legs split with additional focus days
-                focus_distribution = {
-                    "Day 1": "Push/Chest/Shoulders",
-                    "Day 2": "Pull/Back/Arms",
-                    "Day 3": "Legs/Glutes",
-                    "Day 4": "Core/Shoulders",
-                    "Day 5": "Arms/Mobility"
-                }
+            
+            for day_num in sorted(days.keys()):
+                with st.expander(f"{day_names[day_num]} ({len(days[day_num])} exercises)"):
+                    for workout in days[day_num]:
+                        st.write(f"**{workout['title']}**: {workout['target_sets']} sets × {workout['target_reps']} reps")
+            
+            # Navigate back to plans view
+            st.session_state.view = 'plans'
+            st.rerun()
+        else:
+            # If result is a plan_id, a basic plan was created
+            if isinstance(result, int):
+                plan_id = result
+                st.warning("Basic plan created. Some advanced features couldn't be applied.")
+                st.session_state.view = 'plans'
+                st.rerun()
             else:
-                # More advanced 6-day split
-                focus_distribution = {
-                    "Day 1": "Chest/Triceps",
-                    "Day 2": "Back/Biceps",
-                    "Day 3": "Legs/Core",
-                    "Day 4": "Shoulders/Arms",
-                    "Day 5": "Full Body Functional",
-                    "Day 6": "Cardio/Mobility",
-                    "Day 7": "Recovery/Light Mobility"
-                }
-
-            # Modify focus based on specific_focus selection
-            if "Upper Body" in specific_focus and "Lower Body" not in specific_focus:
-                # Increase upper body focus
-                for day in range(1, min(4, workouts_per_week + 1)):
-                    if f"Day {day}" in focus_distribution and "Legs" in focus_distribution[f"Day {day}"]:
-                        focus_distribution[f"Day {day}"] = focus_distribution[f"Day {day}"].replace("Legs", "Upper")
-            elif "Lower Body" in specific_focus and "Upper Body" not in specific_focus:
-                # Increase lower body focus
-                lower_days = 0
-                for day in range(1, workouts_per_week + 1):
-                    if f"Day {day}" in focus_distribution and "Legs" in focus_distribution[f"Day {day}"]:
-                        lower_days += 1
-
-                if lower_days < workouts_per_week // 2:
-                    # Add an extra leg day
-                    for day in range(1, workouts_per_week + 1):
-                        if f"Day {day}" in focus_distribution and "Arms" in focus_distribution[f"Day {day}"]:
-                            focus_distribution[f"Day {day}"] = "Legs/Glutes"
-                            break
-
-            # Modify workout focus based on goal
-            if "Sports and Athletics" in plan_goal:
-                # Add more functional/compound movements
-                for day in range(1, workouts_per_week + 1):
-                    if f"Day {day}" in focus_distribution:
-                        focus_distribution[f"Day {day}"] += "/Functional"
-
-                # Ensure at least one cardio day
-                cardio_added = False
-                for day in range(1, workouts_per_week + 1):
-                    if f"Day {day}" in focus_distribution and "Cardio" in focus_distribution[f"Day {day}"]:
-                        cardio_added = True
-                        break
-
-                if not cardio_added and workouts_per_week >= 3:
-                    focus_distribution[f"Day {workouts_per_week}"] = "Cardio/Agility"
-
-            elif "Weight Loss" in plan_goal:
-                # Add HIIT and cardio components to more days
-                for day in range(1, workouts_per_week + 1):
-                    if f"Day {day}" in focus_distribution:
-                        if "Cardio" not in focus_distribution[f"Day {day}"]:
-                            focus_distribution[f"Day {day}"] += "/HIIT"
-
-            # Validate equipment access
-            has_full_equipment = "Full Gym" in equipment_access
-            if not has_full_equipment:
-                # Check what equipment is available and modify focus
-                available_equipment = []
-                if "Dumbbells" in equipment_access:
-                    available_equipment.append("dumbbell")
-                if "Resistance Bands" in equipment_access:
-                    available_equipment.append("band")
-                if "Pull-up Bar" in equipment_access:
-                    available_equipment.append("bodyweight")
-
-                # If very limited equipment, add bodyweight
-                if not available_equipment or ("No Equipment" in equipment_access):
-                    available_equipment.append("bodyweight")
-
-                # Update plan details
-                plan_details["limited_equipment"] = True
-                plan_details["available_equipment"] = available_equipment
-
-            # Create the actual workout plan
-            try:
-                workout_plan = planner.create_workout_plan(
-                    days=workouts_per_week,
-                    focus=focus_distribution,
-                    equipment=equipment_access,
-                    limitations=limitations,
-                    experience_level=experience_level,
-                    goal=plan_goal
-                )
-
-                # Validate the workout plan to ensure it meets criteria
-                # For example, ensure proper muscle group distribution
-                is_valid, validation_message = validate_workout_plan(workout_plan, plan_goal, experience_level)
-
-                if not is_valid:
-                    st.warning(f"Warning: {validation_message}. Attempting to fix...")
-                    # Try to fix the issues
-                    workout_plan = fix_workout_plan(workout_plan, plan_goal, experience_level)
-
-                # Create plan in database
-                plan_id = db.create_fitness_plan(
-                    name=plan_name,
-                    goal=plan_goal,
-                    duration_weeks=duration,
-                    plan_details=json.dumps(plan_details),
-                    user_id=st.session_state.user_id
-                )
-
-                # Once we have the plan ID, add workouts to the database
-                for day_number, day_key in enumerate(sorted(workout_plan.keys()), 1):
-                    for week in range(1, duration + 1):
-                        exercises = workout_plan[day_key]
-                        for exercise in exercises:
-                            # Generate appropriate sets, reps based on experience and goal
-                            target_sets, target_reps = calculate_sets_reps(exercise, experience_level, plan_goal)
-
-                            db.add_plan_workout(
-                                plan_id=plan_id,
-                                exercise_id=exercise.get('id'),
-                                week=week,
-                                day=day_number,
-                                target_sets=target_sets,
-                                target_reps=target_reps,
-                                description=f"{day_key} - {exercise.get('body_part', 'General')} Focus"
-                            )
-
-                st.success("Your personalized plan has been created!")
-
-                # Preview first week
-                st.write("### Preview of Week 1")
-                workouts = db.get_plan_workouts(plan_id, 1, None)
-
-                # Group by day
-                days = {}
-                for workout in workouts:
-                    day_num = workout['day']
-                    if day_num not in days:
-                        days[day_num] = []
-                    days[day_num].append(workout)
-
-                # Show each day's workouts
-                day_names = {
-                    1: "Monday",
-                    2: "Tuesday",
-                    3: "Wednesday",
-                    4: "Thursday",
-                    5: "Friday",
-                    6: "Saturday",
-                    7: "Sunday"
-                }
-
-                for day_num in sorted(days.keys()):
-                    with st.expander(
-                            f"{day_names[day_num]} - {days[day_num][0]['description'].split('-')[0].strip()}"
-                    ):
-                        for workout in days[day_num]:
-                            st.write(
-                                f"**{workout['title']}**: {workout['target_sets']} sets × {workout['target_reps']} reps"
-                            )
-
-                # Get recommendations for the first workout
-                first_day_rec = recommender.get_daily_recommendation(st.session_state.user_id, plan_id)
-
-                if first_day_rec and 'workouts' in first_day_rec:
-                    with st.expander("Workout Recommendations"):
-                        st.write("### Recommended Approach")
-                        if 'message' in first_day_rec:
-                            st.write(first_day_rec['message'])
-
-                        for idx, workout in enumerate(first_day_rec['workouts'][:3]):
-                            st.write(f"**{idx+1}. {workout.get('title', 'Exercise')}**: {workout.get('target_sets', 3)} sets × {workout.get('target_reps', 10)} reps")
-
-                        if 'adjustments' in first_day_rec and first_day_rec['adjustments']:
-                            st.write("**Suggestions:**")
-                            for adj in first_day_rec['adjustments']:
-                                st.write(f"- {adj}")
-
-                st.session_state.view = 'plans'
-                st.rerun()
-
-            except Exception as e:
-                st.error(f"Error creating workout plan: {str(e)}")
-                # Fallback to basic plan creation
-                plan_id = db.create_fitness_plan(
-                    name=plan_name,
-                    goal=plan_goal,
-                    duration_weeks=duration,
-                    plan_details=json.dumps(plan_details),
-                    user_id=st.session_state.user_id
-                )
-                st.success("Basic plan created. Some advanced features couldn't be applied.")
-                st.session_state.view = 'plans'
-                st.rerun()
-
-
-# Helper functions for workout plan validation and creation
-def validate_workout_plan(workout_plan, goal, experience_level):
-    """Validates a workout plan meets criteria based on goal and experience"""
-    # Check if enough exercises per day
-    for day, exercises in workout_plan.items():
-        if len(exercises) < 5:
-            return False, f"Not enough exercises for {day}"
-
-    # Check muscle group balance across the week
-    all_exercises = []
-    for day, exercises in workout_plan.items():
-        all_exercises.extend(exercises)
-
-    muscle_counts = {}
-    for exercise in all_exercises:
-        body_part = exercise.get('body_part', '').lower()
-        if body_part:
-            muscle_counts[body_part] = muscle_counts.get(body_part, 0) + 1
-
-    # Ensure balanced approach 
-    min_threshold = 2  # Minimum exercises per major muscle group
-    major_muscles = ['chest', 'back', 'legs', 'shoulders', 'arms']
-
-    for muscle in major_muscles:
-        if muscle_counts.get(muscle, 0) < min_threshold:
-            return False, f"Not enough {muscle} exercises in the plan"
-
-    # For bodybuilding goals, ensure higher volume for hypertrophy
-    if "Body Building" in goal:
-        exercise_types = [e.get('exercise_type', '').lower() for e in all_exercises]
-        isolation_count = exercise_types.count('isolation')
-
-        if isolation_count < len(all_exercises) * 0.3:  # At least 30% isolation exercises
-            return False, "Not enough isolation exercises for bodybuilding goal"
-
-    # For weight loss, ensure enough cardio
-    if "Weight Loss" in goal:
-        cardio_count = 0
-        for exercise in all_exercises:
-            if 'cardio' in exercise.get('exercise_type', '').lower() or 'hiit' in exercise.get('title', '').lower():
-                cardio_count += 1
-
-        if cardio_count < len(workout_plan):  # At least one cardio per day
-            return False, "Not enough cardio exercises for weight loss goal"
-
-    return True, "Plan validated successfully"
-
-
-# Continued from previous artifact
-def fix_workout_plan(workout_plan, goal, experience_level):
-    """Attempts to fix issues with a workout plan"""
-    # This is a simplified version - in production you'd have more complex logic
-    fixed_plan = workout_plan.copy()
-
-    # Add placeholder exercises for missing muscle groups if needed
-    muscle_exercises = {
-        'chest': {'title': 'Push-up Variations', 'body_part': 'Chest', 'exercise_type': 'Compound'},
-        'back': {'title': 'Bodyweight Row', 'body_part': 'Back', 'exercise_type': 'Compound'},
-        'legs': {'title': 'Bodyweight Squat', 'body_part': 'Legs', 'exercise_type': 'Compound'},
-        'shoulders': {'title': 'Pike Push-up', 'body_part': 'Shoulders', 'exercise_type': 'Compound'},
-        'arms': {'title': 'Tricep Dips', 'body_part': 'Arms', 'exercise_type': 'Isolation'},
-        'cardio': {'title': 'HIIT Intervals', 'body_part': 'Full Body', 'exercise_type': 'Cardio'}
-    }
-
-    # If "Body Building" goal, ensure enough isolation exercises
-    if "Body Building" in goal:
-        for day, exercises in fixed_plan.items():
-            isolation_count = len([e for e in exercises if e.get('exercise_type') == 'Isolation'])
-            if isolation_count < 3:  # Aim for at least 3 isolation exercises
-                # Add some isolation exercises
-                day_focus = day.split(' - ')[-1].lower() if ' - ' in day else ''
-
-                if 'chest' in day_focus:
-                    exercises.append({'title': 'Chest Flyes', 'body_part': 'Chest', 'exercise_type': 'Isolation'})
-                elif 'back' in day_focus:
-                    exercises.append({'title': 'Straight Arm Pulldown', 'body_part': 'Back', 'exercise_type': 'Isolation'})
-                elif 'legs' in day_focus:
-                    exercises.append({'title': 'Leg Extension', 'body_part': 'Legs', 'exercise_type': 'Isolation'})
-                else:
-                    exercises.append({'title': 'Lateral Raises', 'body_part': 'Shoulders', 'exercise_type': 'Isolation'})
-
-    # If "Weight Loss" goal, ensure cardio in each day
-    if "Weight Loss" in goal:
-        for day, exercises in fixed_plan.items():
-            has_cardio = any('cardio' in e.get('exercise_type', '').lower() for e in exercises)
-            if not has_cardio:
-                exercises.append(muscle_exercises['cardio'])
-
-    return fixed_plan
-
-
-def calculate_sets_reps(exercise, experience_level, goal):
-    """Calculate target sets and reps based on exercise type, experience and goal"""
-    exercise_type = exercise.get('exercise_type', '').lower()
-
-    # Default values
-    sets = 3
-    reps = 10
-
-    # Adjust based on experience level
-    if experience_level == "Beginner":
-        sets = 3
-    elif experience_level == "Intermediate":
-        sets = 4
-    else:  # Advanced
-        sets = 5
-
-    # Adjust based on exercise type
-    if 'compound' in exercise_type:
-        if "Strength" in goal or "Sports" in goal:
-            reps = 6  # Lower reps for strength focus
-        else:
-            reps = 8  # Moderate reps for compound movements
-    elif 'isolation' in exercise_type:
-        if "Body Building" in goal:
-            reps = 12  # Higher reps for hypertrophy with isolation
-        else:
-            reps = 10
-    elif 'cardio' in exercise_type:
-        sets = 3
-        reps = 15  # Higher reps for cardio/endurance
-
-    # For weight loss, higher reps across the board
-    if "Weight Loss" in goal and 'cardio' not in exercise_type:
-        reps += 2
-
-    return sets, reps
-
-
-# Close database connection at the very end
-if __name__ == "__main__":
-    try:
-        st.session_state
-    finally:
-        db.close()
+                # Result is an error message
+                st.error(f"Error creating workout plan: {result}")
