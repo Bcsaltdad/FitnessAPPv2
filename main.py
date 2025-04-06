@@ -344,8 +344,13 @@ with tabs[2]:  # Create New Plan
                 "experience_level": experience_level
             }
 
-            plan_id = db.create_fitness_plan(plan_name, plan_goal, duration,
-                                             json.dumps(plan_details))
+            plan_id = db.create_fitness_plan(
+                name=plan_name,
+                goal=plan_goal,
+                duration_weeks=duration,
+                plan_details=json.dumps(plan_details),
+                user_id=st.session_state.user_id
+            )
 
             st.success("Your personalized plan has been created!")
 

@@ -71,11 +71,7 @@ class ExerciseDatabase:
     def get_active_plans(self, user_id):
         """Get active fitness plans for specific user"""
         self.cursor.execute('SELECT * FROM fitness_plans WHERE is_active = 1 AND user_id = ?', (user_id,))
-        plans = [self._row_to_dict(row) for row in self.cursor.fetchall()]
-        
-        # Add delete button for each plan
-        for plan in plans:
-            col1, col2, col3, col4 = st.columns([3, 1, 0.5, 0.5])
+        return [self._row_to_dict(row) for row in self.cursor.fetchall()]
             with col1:
                 st.subheader(f"📋 {plan['name']}")
             with col2:
