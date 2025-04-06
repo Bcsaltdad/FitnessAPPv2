@@ -52,5 +52,41 @@ class ExerciseDatabase:
         columns = [col[0] for col in self.cursor.description]
         return {columns[i]: row[i] for i in range(len(columns))}
     
+    def create_fitness_plan(self, name: str, goal: str, duration_weeks: int) -> int:
+        self.cursor.execute(
+            'INSERT INTO fitness_plans (name, goal, duration_weeks) VALUES (?, ?, ?)',
+            (name, goal, duration_weeks)
+        )
+        self.conn.commit()
+        return self.cursor.lastrowid
+
+    def add_workout_to_plan(self, plan_id: int, exercise_id: int, day: int, week: int, sets: int, reps: int):
+        self.cursor.execute(
+            'INSERT INTO plan_workouts (plan_id, exercise_id, day_of_week, week_number, target_sets, target_reps) VALUES (?, ?, ?, ?, ?, ?)',
+            (plan_id, exercise_id, day, week, sets, reps)
+        )
+        self.conn.commit()
+
+    def get_fitness_plans(self):
+        self.cursor.execute('SELECT * FROM fitness_plans')
+        return [self._row_to_dict(row) for row in self.cursor.fetchall()]
+
+    def get_plan_workouts(self, plan_id: int, week: int, day: int):
+        query = '''
+        SELECT pw.*, e.title, e.description, e.equipment, e.level
+        FROM plan_workouts pw
+        JOIN exercises e ON pw.exercise_id = e.id
+        WHERE pw.plan_id = ? AND pw.week_number = ? AND pw.day_of_week = ?
+        '''
+        self.cursor.execute(query, (plan_id, week, day))
+        return [self._row_to_dict(row) for row in self.cursor.fetchall()]
+
+    def log_workout(self, plan_workout_id: int, sets: int, reps: int, weight: float):
+        self.cursor.execute(
+            'INSERT INTO workout_logs (plan_workout_id, sets_completed, reps_completed, weight) VALUES (?, ?, ?, ?)',
+            (plan_workout_id, sets, reps, weight)
+        )
+        self.conn.commit()
+
     def close(self):
         self.conn.close()

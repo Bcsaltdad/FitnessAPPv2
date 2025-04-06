@@ -42,6 +42,42 @@ def setup_database():
         FOREIGN KEY (exercise_id) REFERENCES exercises (id)
     )''')
 
+    # Create fitness plans table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS fitness_plans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        goal TEXT,
+        duration_weeks INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    
+    # Create plan workouts table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS plan_workouts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        plan_id INTEGER,
+        exercise_id INTEGER,
+        day_of_week INTEGER,
+        week_number INTEGER,
+        target_sets INTEGER,
+        target_reps INTEGER,
+        FOREIGN KEY (plan_id) REFERENCES fitness_plans (id),
+        FOREIGN KEY (exercise_id) REFERENCES exercises (id)
+    )''')
+    
+    # Create workout logs table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS workout_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        plan_workout_id INTEGER,
+        sets_completed INTEGER,
+        reps_completed INTEGER,
+        weight FLOAT,
+        completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (plan_workout_id) REFERENCES plan_workouts (id)
+    )''')
+
     conn.commit()
     return conn, cursor
 
