@@ -373,6 +373,8 @@ with tabs[0]:  # My Plans
             with st.expander(workout['title']):
                 show_workout_log(workout)
 
+# Replace the exercise display section in the Exercise Library tab:
+
 with tabs[1]:  # Exercise Library
     st.header("Exercise Library")
     
@@ -412,28 +414,45 @@ with tabs[1]:  # Exercise Library
         st.info("No exercises found with the selected filters.")
     else:
         for exercise in exercises:
-            with st.expander(f"📋 {exercise['title']}", expanded=False):
-                st.write(f"**Description:** {exercise['description']}")
-                st.write(f"**Equipment:** {exercise.get('equipment', 'Not specified')}")
-                st.write(f"**Level:** {exercise.get('level', 'Not specified')}")
+            # Convert exercise to dictionary for safer access
+            ex_dict = dict(exercise)
+            with st.expander(f"📋 {ex_dict['title']}", expanded=False):
+                st.write(f"**Description:** {ex_dict.get('description', 'Not specified')}")
+                
+                # Safely access equipment and level properties
+                equipment = ex_dict.get('equipment', 'Not specified')
+                level = ex_dict.get('level', 'Not specified')
+                
+                st.write(f"**Equipment:** {equipment}")
+                st.write(f"**Level:** {level}")
                 
                 # Show sports-specific information if available
-                if exercise.get('sports_focus'):
+                sports_focus = ex_dict.get('sports_focus')
+                if sports_focus:
                     try:
-                        sports = json.loads(exercise['sports_focus'])
+                        sports = json.loads(sports_focus)
                         if sports:
                             st.write(f"**Sports:** {', '.join(sports)}")
-                    except:
+                    except (json.JSONDecodeError, TypeError):
+                        # Handle invalid JSON or other errors silently
                         pass
                 
-                if exercise.get('primary_movement_pattern'):
-                    st.write(f"**Movement Pattern:** {exercise['primary_movement_pattern']}")
+                movement_pattern = ex_dict.get('primary_movement_pattern')
+                if movement_pattern:
+                    st.write(f"**Movement Pattern:** {movement_pattern}")
                 
-                if exercise.get('instructions'):
+                instructions = ex_dict.get('instructions')
+                if instructions:
                     st.write("**Instructions:**")
-                    instructions = exercise['instructions'].split(',')
-                    for i, instruction in enumerate(instructions, 1):
-                        st.write(f"{i}. {instruction.strip()}")
+                    try:
+                        # Try splitting by comma if it's a string
+                        if isinstance(instructions, str):
+                            inst_list = instructions.split(',')
+                            for i, instruction in enumerate(inst_list, 1):
+                                st.write(f"{i}. {instruction.strip()}")
+                    except:
+                        # Fall back to just showing the raw instructions
+                        st.write(instructions)
 
 with tabs[2]:  # Create New Plan
     st.header("Create Your Personalized Fitness Plan")
