@@ -316,3 +316,29 @@ with tabs[2]:  # Create New Plan
 
 # Close database connection
 db.close()
+# Add this after your imports
+from Engine import WorkoutRecommender
+
+# Add this where your other routes are
+if st.sidebar.button("Test Recommendation Engine"):
+    recommender = WorkoutRecommender(db)
+    test_user_id = 1  # Using default user ID
+    recommendation = recommender.get_daily_recommendation(test_user_id)
+    
+    st.write("### Recommendation Test Results")
+    st.json(recommendation)
+    
+    if recommendation.get('workouts'):
+        st.write("### Suggested Workouts")
+        for workout in recommendation['workouts']:
+            st.write(f"- {workout['title']}: {workout.get('sets', 'N/A')} sets × {workout.get('reps', 'N/A')} reps")
+    
+    if recommendation.get('adjustments'):
+        st.write("### Suggested Adjustments")
+        for adjustment in recommendation['adjustments']:
+            st.write(f"- {adjustment}")
+            
+    if recommendation.get('muscle_recovery'):
+        st.write("### Muscle Recovery Status")
+        for muscle, status in recommendation['muscle_recovery'].items():
+            st.write(f"- {muscle}: {status}")
