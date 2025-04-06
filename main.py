@@ -256,6 +256,8 @@ with tabs[0]:  # My Plans
                 st.subheader(f"📋 {plan['name']}")
                 if plan.get('primary_sport'):
                     st.caption(f"Sport focus: {plan['primary_sport']}")
+                else: 
+                    st.info("No active plans found. Create a new plan to get started!")
             with col2:
                 if f"edit_goal_{plan['id']}" not in st.session_state:
                     st.session_state[f"edit_goal_{plan['id']}"] = False
