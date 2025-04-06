@@ -19,10 +19,7 @@ def setup_database():
         equipment TEXT,
         level TEXT,
         rating FLOAT,
-        rating_desc TEXT,
-        photo_url TEXT,
-        video_url TEXT,
-        detailed_instructions TEXT
+        rating_desc TEXT
     )''')
     
     # Create muscles table for target muscles
@@ -366,3 +363,11 @@ def _calculate_week_progress(self, plan_id, week):
     completed = self.cursor.fetchone()[0] or 0
 
     return (completed / total) * 100
+
+def make_plan_inactive(self, plan_id):
+    """Set a specific plan to inactive."""
+    self.cursor.execute(
+        "UPDATE fitness_plans SET is_active = 0 WHERE id = ?",
+        (plan_id,)
+    )
+    self.conn.commit()
