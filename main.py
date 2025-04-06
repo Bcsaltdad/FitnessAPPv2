@@ -314,8 +314,6 @@ with tabs[2]:  # Create New Plan
 
             st.button("Go to My Plans", on_click=go_to_plans)
 
-# Close database connection
-db.close()
 # Add this after your imports
 from Engine import WorkoutRecommender
 
@@ -342,3 +340,12 @@ if st.sidebar.button("Test Recommendation Engine"):
         st.write("### Muscle Recovery Status")
         for muscle, status in recommendation['muscle_recovery'].items():
             st.write(f"- {muscle}: {status}")
+
+
+
+# Close database connection at the very end
+if __name__ == "__main__":
+    try:
+        st.session_state
+    finally:
+        db.close()
