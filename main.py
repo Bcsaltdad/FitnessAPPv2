@@ -174,22 +174,29 @@ with tabs[0]:
                 if st.button("✏️", key=f"edit_btn_{plan['id']}"):
                     st.session_state[f"edit_goal_{plan['id']}"] = True
 
+            cols = st.columns([3, 1])
+            with cols[1]:
+                if st.button("🗑️ Delete Plan", key=f"delete_{plan['id']}"):
+                    db.cursor.execute("UPDATE fitness_plans SET is_active = 0 WHERE id = ?", (plan['id'],))
+                    db.conn.commit()
+                    st.rerun()
+                    
             summary = db.get_plan_summary(plan['id'])
             if summary:
-                cols = st.columns(4)
-                with cols[0]:
+                metric_cols = st.columns(4)
+                with metric_cols[0]:
                     st.metric("Total Weeks", plan['duration_weeks'])
-                with cols[1]:
+                with metric_cols[1]:
                     completed_workouts = sum(week['exercises_completed'] or 0
                                              for week in summary)
                     st.metric("Completed Workouts", completed_workouts)
-                with cols[2]:
+                with metric_cols[2]:
                     avg_weight = sum(
                         week['avg_weight'] or 0
                         for week in summary) / len(summary) if summary else 0
                     st.metric("Avg Weight (lbs)",
                               f"{(avg_weight * 2.20462):.1f}")
-                with cols[3]:
+                with metric_cols[3]:
                     days_worked = sum(week['days_worked'] or 0
                                       for week in summary)
                     st.metric("Days Worked", days_worked)

@@ -70,9 +70,13 @@ class ExerciseDatabase:
 
     def get_active_plans(self, user_id):
         """Get active fitness plans for specific user"""
-        self.cursor.execute('SELECT * FROM fitness_plans WHERE is_active = 1 AND user_id = ?', (user_id,))
+        self.cursor.execute('''
+            SELECT * FROM fitness_plans 
+            WHERE user_id = ? AND is_active = 1
+            ORDER BY created_at DESC
+        ''', (user_id,))
         return [self._row_to_dict(row) for row in self.cursor.fetchall()]
-        
+
     def delete_plan(self, plan_id):
         """Delete a fitness plan"""
         self.cursor.execute('DELETE FROM fitness_plans WHERE id = ?', (plan_id,))
