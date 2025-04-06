@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import json
 import hashlib
-import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 from exercise_utils import ExerciseDatabase
 from workout_planner import WorkoutPlanner
@@ -630,25 +629,21 @@ with tabs[3]:  # Progress Tracking
                             part = part.strip()
                             body_parts[part] = body_parts.get(part, 0) + 1
             
-            # Create a visualization
+            # Create a visualization using Streamlit's native charts
             if body_parts:
                 st.subheader("Body Part Focus")
                 
                 # Sort by frequency and limit to top 8
                 sorted_parts = sorted(body_parts.items(), key=lambda x: x[1], reverse=True)[:8]
                 
-                # Create bar chart using matplotlib
-                fig, ax = plt.subplots(figsize=(10, 5))
-                parts = [p[0] for p in sorted_parts]
-                counts = [p[1] for p in sorted_parts]
-                ax.bar(parts, counts, color='skyblue')
-                ax.set_xlabel('Body Part')
-                ax.set_ylabel('Frequency')
-                ax.set_title('Body Part Training Frequency')
-                plt.xticks(rotation=45, ha='right')
-                plt.tight_layout()
+                # Create a dataframe for the chart
+                chart_data = pd.DataFrame({
+                    'Body Part': [p[0] for p in sorted_parts],
+                    'Frequency': [p[1] for p in sorted_parts]
+                })
                 
-                st.pyplot(fig)
+                # Display with Streamlit's bar chart
+                st.bar_chart(chart_data.set_index('Body Part'))
             
             # Recent workouts
             st.subheader("Recent Workouts")
