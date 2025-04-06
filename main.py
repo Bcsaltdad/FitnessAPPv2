@@ -1,26 +1,7 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
-import http.client
-
-# API connection details
-API_KEY = "9943fa8927msh9f5dd0b4afc6aa8p1166c3jsnd4ce488a3caf"  # Replace with your actual API key
-API_HOST = "exercisedb.p.rapidapi.com"
-
-def fetch_exercises():
-    conn = http.client.HTTPSConnection(API_HOST)
-    headers = {
-        'x-rapidapi-key': API_KEY,
-        'x-rapidapi-host': API_HOST
-    }
-    conn.request("GET", "/status", headers=headers) #This API endpoint needs to be updated to fetch exercises.  Placeholder for now.
-    res = conn.getresponse()
-    data = res.read()
-    try:
-        exercises = eval(data.decode("utf-8")) #Assuming the API returns a list of dictionaries.  Adjust accordingly.
-        return exercises
-    except:
-        return []
+from api_handler import fetch_exercises, get_exercise_by_id
 
 
 # Database setup
