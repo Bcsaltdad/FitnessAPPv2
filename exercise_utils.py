@@ -52,10 +52,10 @@ class ExerciseDatabase:
         columns = [col[0] for col in self.cursor.description]
         return {columns[i]: row[i] for i in range(len(columns))}
     
-    def create_fitness_plan(self, name: str, goal: str, duration_weeks: int) -> int:
+    def create_fitness_plan(self, name: str, goal: str, duration_weeks: int, plan_details: str = None) -> int:
         self.cursor.execute(
-            'INSERT INTO fitness_plans (name, goal, duration_weeks) VALUES (?, ?, ?)',
-            (name, goal, duration_weeks)
+            'INSERT INTO fitness_plans (name, goal, duration_weeks, plan_details) VALUES (?, ?, ?, ?)',
+            (name, goal, duration_weeks, plan_details)
         )
         self.conn.commit()
         return self.cursor.lastrowid

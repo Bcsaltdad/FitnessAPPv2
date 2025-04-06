@@ -49,6 +49,7 @@ def setup_database():
         name TEXT NOT NULL,
         goal TEXT,
         duration_weeks INTEGER,
+        plan_details TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     

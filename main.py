@@ -71,13 +71,66 @@ with tabs[1]:  # Fitness Plans
     st.header("Fitness Plans")
 
     # Create new plan section
-    with st.expander("➕ Create New Plan", expanded=False):
+    with st.expander("➕ Create New Plan", expanded=True):
+        st.subheader("Create Your Personalized Fitness Plan")
+        
+        # Step 1: Basic Info
+        st.write("### Step 1: Basic Information")
         plan_name = st.text_input("Plan Name")
-        plan_goal = st.selectbox("Goal", ["Strength", "Cardio", "Flexibility"], key="goal_filter_plan")
-        duration = st.number_input("Duration (weeks)", min_value=1, value=4)
-        if st.button("Create Plan", use_container_width=True):
-            plan_id = db.create_fitness_plan(plan_name, plan_goal, duration)
-            st.success("Plan created!")
+        
+        # Step 2: Goal Selection
+        st.write("### Step 2: Select Your Primary Goal")
+        plan_goal = st.selectbox(
+            "What's your primary fitness goal?",
+            [
+                "Sports and Athletics",
+                "Body Building",
+                "Body Weight Fitness",
+                "Weight Loss",
+                "Mobility Exclusive"
+            ],
+            key="goal_filter_plan"
+        )
+        
+        # Step 3: Experience Level
+        st.write("### Step 3: Experience Level")
+        experience = st.select_slider(
+            "What's your fitness experience level?",
+            options=["Beginner", "Intermediate", "Advanced"],
+            value="Intermediate"
+        )
+        
+        # Step 4: Time Commitment
+        st.write("### Step 4: Time Commitment")
+        workouts_per_week = st.slider("How many workouts can you commit to per week?", 2, 6, 3)
+        duration = st.number_input("Program duration (weeks)", min_value=4, value=8, max_value=52)
+        
+        # Step 5: Equipment Access
+        st.write("### Step 5: Equipment Access")
+        equipment_access = st.multiselect(
+            "What equipment do you have access to?",
+            ["Full Gym", "Dumbbells", "Resistance Bands", "Pull-up Bar", "No Equipment"],
+            default=["Full Gym"]
+        )
+        
+        # Step 6: Health Considerations
+        st.write("### Step 6: Health Considerations")
+        limitations = st.multiselect(
+            "Do you have any physical limitations or areas to avoid?",
+            ["None", "Lower Back", "Knees", "Shoulders", "Neck"],
+            default=["None"]
+        )
+        
+        if st.button("Create Personalized Plan", use_container_width=True):
+            # Store additional information in JSON format
+            plan_details = {
+                "experience_level": experience,
+                "workouts_per_week": workouts_per_week,
+                "equipment_access": equipment_access,
+                "limitations": limitations
+            }
+            plan_id = db.create_fitness_plan(plan_name, plan_goal, duration, json.dumps(plan_details))
+            st.success("Personalized plan created! Your plan will be optimized based on your responses.")
             st.rerun()
 
     # View and edit plans
