@@ -20,6 +20,7 @@ if 'selected_week' not in st.session_state:
 if 'selected_day' not in st.session_state:
     st.session_state.selected_day = None
 
+
 def show_workout_log(workout):
     st.subheader(workout['title'])
     st.write(f"**Description:** {workout['description']}")
@@ -29,18 +30,25 @@ def show_workout_log(workout):
         for i, instruction in enumerate(instructions, 1):
             st.write(f"{i}. {instruction.strip()}")
 
-    st.write(f"**Target:** {workout['target_sets']} sets × {workout['target_reps']} reps")
+    st.write(
+        f"**Target:** {workout['target_sets']} sets × {workout['target_reps']} reps"
+    )
 
     with st.form(f"log_form_{workout['id']}"):
         sets = st.number_input("Sets Completed", 1, 10, workout['target_sets'])
         reps = st.number_input("Reps Completed", 1, 30, workout['target_reps'])
-        weight_lbs = st.number_input("Weight (lbs)", 0.0, 1000.0, 0.0, step=5.0)
+        weight_lbs = st.number_input("Weight (lbs)",
+                                     0.0,
+                                     1000.0,
+                                     0.0,
+                                     step=5.0)
 
         if st.form_submit_button("Save"):
             weight_kg = weight_lbs / 2.20462
             db.log_workout(workout['id'], sets, reps, weight_kg)
             st.success("Workout logged!")
             st.session_state.view = 'day_summary'
+
 
 # Navigation functions
 def go_to_plans():
@@ -49,16 +57,19 @@ def go_to_plans():
     st.session_state.selected_week = None
     st.session_state.selected_day = None
 
+
 def go_to_week_view(plan_id, week):
     st.session_state.view = 'week_summary'
     st.session_state.selected_plan = plan_id
     st.session_state.selected_week = week
+
 
 def go_to_day_view(plan_id, week, day):
     st.session_state.view = 'day_summary'
     st.session_state.selected_plan = plan_id
     st.session_state.selected_week = week
     st.session_state.selected_day = day
+
 
 # Main UI
 tabs = st.tabs(["My Plans", "Exercise Library", "Create New Plan"])
@@ -78,9 +89,11 @@ with tabs[0]:
             with col2:
                 if f"edit_goal_{plan['id']}" not in st.session_state:
                     st.session_state[f"edit_goal_{plan['id']}"] = False
-                
+
                 if st.session_state[f"edit_goal_{plan['id']}"]:
-                    new_goal = st.text_input("New Goal", value=plan['goal'], key=f"goal_input_{plan['id']}")
+                    new_goal = st.text_input("New Goal",
+                                             value=plan['goal'],
+                                             key=f"goal_input_{plan['id']}")
                     if st.button("Save", key=f"save_goal_{plan['id']}"):
                         db.update_plan_goal(plan['id'], new_goal)
                         st.session_state[f"edit_goal_{plan['id']}"] = False
@@ -97,21 +110,27 @@ with tabs[0]:
                 with cols[0]:
                     st.metric("Total Weeks", plan['duration_weeks'])
                 with cols[1]:
-                    completed_workouts = sum(week['exercises_completed'] or 0 for week in summary)
+                    completed_workouts = sum(week['exercises_completed'] or 0
+                                             for week in summary)
                     st.metric("Completed Workouts", completed_workouts)
                 with cols[2]:
-                    avg_weight = sum(week['avg_weight'] or 0 for week in summary) / len(summary) if summary else 0
-                    st.metric("Avg Weight (lbs)", f"{(avg_weight * 2.20462):.1f}")
+                    avg_weight = sum(
+                        week['avg_weight'] or 0
+                        for week in summary) / len(summary) if summary else 0
+                    st.metric("Avg Weight (lbs)",
+                              f"{(avg_weight * 2.20462):.1f}")
                 with cols[3]:
-                    days_worked = sum(week['days_worked'] or 0 for week in summary)
+                    days_worked = sum(week['days_worked'] or 0
+                                      for week in summary)
                     st.metric("Days Worked", days_worked)
 
             # Show weeks as clickable buttons
             st.write("### Weekly Schedule")
             week_cols = st.columns(4)
             for week in range(1, plan['duration_weeks'] + 1):
-                with week_cols[(week-1) % 4]:
-                    if st.button(f"Week {week}", key=f"week_{plan['id']}_{week}"):
+                with week_cols[(week - 1) % 4]:
+                    if st.button(f"Week {week}",
+                                 key=f"week_{plan['id']}_{week}"):
                         go_to_week_view(plan['id'], week)
 
     elif st.session_state.view == 'week_summary':
@@ -119,33 +138,49 @@ with tabs[0]:
         st.button("← Back to Plans", on_click=go_to_plans)
         st.header(f"Week {st.session_state.selected_week} Schedule")
 
-        days = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 
-                4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
+        days = {
+            1: "Monday",
+            2: "Tuesday",
+            3: "Wednesday",
+            4: "Thursday",
+            5: "Friday",
+            6: "Saturday",
+            7: "Sunday"
+        }
 
         for day_num, day_name in days.items():
-            workouts = db.get_plan_workouts(st.session_state.selected_plan, 
-                                          st.session_state.selected_week, 
-                                          day_num)
+            workouts = db.get_plan_workouts(st.session_state.selected_plan,
+                                            st.session_state.selected_week,
+                                            day_num)
             if workouts:
-                if st.button(f"{day_name} ({len(workouts)} workouts)", 
-                           key=f"day_{day_num}"):
-                    go_to_day_view(st.session_state.selected_plan, 
-                                 st.session_state.selected_week, 
-                                 day_num)
+                if st.button(f"{day_name} ({len(workouts)} workouts)",
+                             key=f"day_{day_num}"):
+                    go_to_day_view(st.session_state.selected_plan,
+                                   st.session_state.selected_week, day_num)
 
     elif st.session_state.view == 'day_summary':
-        st.button("← Back to Week", 
-                 on_click=lambda: go_to_week_view(st.session_state.selected_plan, 
-                                                st.session_state.selected_week))
+        st.button(
+            "← Back to Week",
+            on_click=lambda: go_to_week_view(st.session_state.selected_plan, st
+                                             .session_state.selected_week))
 
-        day_names = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 
-                    4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
+        day_names = {
+            1: "Monday",
+            2: "Tuesday",
+            3: "Wednesday",
+            4: "Thursday",
+            5: "Friday",
+            6: "Saturday",
+            7: "Sunday"
+        }
 
-        st.header(f"Week {st.session_state.selected_week} - {day_names[st.session_state.selected_day]}")
+        st.header(
+            f"Week {st.session_state.selected_week} - {day_names[st.session_state.selected_day]}"
+        )
 
         workouts = db.get_plan_workouts(st.session_state.selected_plan,
-                                      st.session_state.selected_week,
-                                      st.session_state.selected_day)
+                                        st.session_state.selected_week,
+                                        st.session_state.selected_day)
 
         for workout in workouts:
             with st.expander(workout['title']):
@@ -153,7 +188,8 @@ with tabs[0]:
 
 with tabs[1]:  # Exercise Library
     st.header("Exercise Library")
-    goal = st.selectbox("Filter by Goal", ["Strength", "Cardio", "Flexibility"])
+    goal = st.selectbox("Filter by Goal",
+                        ["Strength", "Cardio", "Flexibility"])
     exercises = db.get_exercises_by_goal(goal)
 
     for exercise in exercises:
@@ -167,8 +203,6 @@ with tabs[1]:  # Exercise Library
                 for i, instruction in enumerate(instructions, 1):
                     st.write(f"{i}. {instruction.strip()}")
 
-
-
 with tabs[2]:  # Create New Plan
     st.header("Create Your Personalized Fitness Plan")
 
@@ -177,57 +211,54 @@ with tabs[2]:  # Create New Plan
 
     with col1:
         plan_name = st.text_input("Plan Name")
-        plan_goal = st.selectbox(
-            "What's your primary fitness goal?",
-            ["Sports and Athletics", "Body Building", "Body Weight Fitness",
-             "Weight Loss", "Mobility Exclusive"]
-        )
+        plan_goal = st.selectbox("What's your primary fitness goal?", [
+            "Sports and Athletics", "Body Building", "Body Weight Fitness",
+            "Weight Loss", "Mobility Exclusive"
+        ])
         experience_level = st.selectbox(
             "Your fitness experience level",
-            ["Beginner", "Intermediate", "Advanced"]
-        )
-        duration = st.number_input("Program duration (weeks)", 
-                                 min_value=4, value=8, max_value=52)
+            ["Beginner", "Intermediate", "Advanced"])
+        duration = st.number_input("Program duration (weeks)",
+                                   min_value=4,
+                                   value=8,
+                                   max_value=52)
 
     with col2:
         workouts_per_week = st.selectbox(
             "How many workouts can you commit to per week?",
             options=list(range(1, 8)),
-            index=2
-        )
+            index=2)
         equipment_access = st.multiselect(
-            "What equipment do you have access to?",
-            ["Full Gym", "Dumbbells", "Resistance Bands", "Pull-up Bar", "No Equipment"],
-            default=["Full Gym"]
-        )
+            "What equipment do you have access to?", [
+                "Full Gym", "Dumbbells", "Resistance Bands", "Pull-up Bar",
+                "No Equipment"
+            ],
+            default=["Full Gym"])
         limitations = st.multiselect(
             "Do you have any physical limitations or areas to avoid?",
             ["None", "Lower Back", "Knees", "Shoulders", "Neck"],
-            default=["None"]
-        )
+            default=["None"])
 
     # More detailed options in an expander
     with st.expander("Advanced Options"):
-        preferred_cardio = st.multiselect(
-            "Preferred cardio types",
-            ["Running", "Cycling", "Swimming", "Rowing", "Jump Rope", "HIIT", "None"],
-            default=["HIIT"]
-        )
+        preferred_cardio = st.multiselect("Preferred cardio types", [
+            "Running", "Cycling", "Swimming", "Rowing", "Jump Rope", "HIIT",
+            "None"
+        ],
+                                          default=["HIIT"])
 
         specific_focus = st.multiselect(
-            "Any specific areas you want to focus on?",
-            ["Core Strength", "Upper Body", "Lower Body", "Explosiveness", 
-             "Endurance", "Balance", "None"],
-            default=["None"]
-        )
+            "Any specific areas you want to focus on?", [
+                "Core Strength", "Upper Body", "Lower Body", "Explosiveness",
+                "Endurance", "Balance", "None"
+            ],
+            default=["None"])
 
-        time_per_workout = st.slider(
-            "Time available per workout (minutes)",
-            min_value=15,
-            max_value=120,
-            value=45,
-            step=5
-        )
+        time_per_workout = st.slider("Time available per workout (minutes)",
+                                     min_value=15,
+                                     max_value=120,
+                                     value=45,
+                                     step=5)
 
     if st.button("Create Personalized Plan"):
         with st.spinner("Creating your personalized workout plan..."):
@@ -244,8 +275,8 @@ with tabs[2]:  # Create New Plan
                 "experience_level": experience_level
             }
 
-            plan_id = db.create_fitness_plan(plan_name, plan_goal, duration, 
-                                           json.dumps(plan_details))
+            plan_id = db.create_fitness_plan(plan_name, plan_goal, duration,
+                                             json.dumps(plan_details))
 
             st.success("Your personalized plan has been created!")
 
@@ -262,13 +293,24 @@ with tabs[2]:  # Create New Plan
                 days[day_num].append(workout)
 
             # Show each day's workouts
-            day_names = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 
-                      4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
+            day_names = {
+                1: "Monday",
+                2: "Tuesday",
+                3: "Wednesday",
+                4: "Thursday",
+                5: "Friday",
+                6: "Saturday",
+                7: "Sunday"
+            }
 
             for day_num in sorted(days.keys()):
-                with st.expander(f"{day_names[day_num]} - {days[day_num][0]['description'].split('-')[0].strip()}"):
+                with st.expander(
+                        f"{day_names[day_num]} - {days[day_num][0]['description'].split('-')[0].strip()}"
+                ):
                     for workout in days[day_num]:
-                        st.write(f"**{workout['title']}**: {workout['target_sets']} sets × {workout['target_reps']} reps")
+                        st.write(
+                            f"**{workout['title']}**: {workout['target_sets']} sets × {workout['target_reps']} reps"
+                        )
 
             st.button("Go to My Plans", on_click=go_to_plans)
 
