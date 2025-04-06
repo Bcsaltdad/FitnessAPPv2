@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import json
 from exercise_utils import ExerciseDatabase
 from datetime import datetime
 
