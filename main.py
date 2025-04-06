@@ -563,43 +563,43 @@ with tabs[2]:  # Create New Plan
                     
                     # Preview first week
                     if success:
-    plan_id = result
-    st.success("Your personalized plan has been created!")
+                        plan_id = result
+                        st.success("Your personalized plan has been created!")
     
-        try:
-            # Preview first week
-            st.write("### Preview of Week 1")
-            workouts = db.get_plan_workouts(plan_id, 1, None)
-            
-            if not workouts:
-                st.info("No workouts found for week 1. Your plan has been created but may be empty.")
-            else:
-                # Group by day
-                days_dict = {}
-                for workout in workouts:
-                    day = workout['day']
-                    if day not in days_dict:
-                        days_dict[day] = []
-                    days_dict[day].append(workout)
-                
-                # Display workouts by day
-                day_names = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 
-                            4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
-                
-                for day, day_workouts in sorted(days_dict.items()):
-                    st.write(f"**{day_names.get(day, f'Day {day}')}** - {len(day_workouts)} exercises")
-                    for workout in day_workouts[:3]:  # Show just a few exercises as preview
-                        st.write(f"- {workout.get('title', 'Unknown exercise')}: {workout.get('target_sets', '?')} sets × {workout.get('target_reps', '?')} reps")
-                    if len(day_workouts) > 3:
-                        st.write(f"- ...and {len(day_workouts) - 3} more exercises")
-        except Exception as e:
-            st.warning(f"Unable to preview plan. The plan was created but preview failed.")
-            if st.session_state.dev_mode:
-                st.error(f"Debug - Error: {str(e)}")
-        
-        # Navigate back to plans view
-        st.session_state.view = 'plans'
-        st.button("Go to My Plans", on_click=go_to_plans)
+                        try:
+                            # Preview first week
+                            st.write("### Preview of Week 1")
+                            workouts = db.get_plan_workouts(plan_id, 1, None)
+                            
+                            if not workouts:
+                                st.info("No workouts found for week 1. Your plan has been created but may be empty.")
+                            else:
+                                # Group by day
+                                days_dict = {}
+                                for workout in workouts:
+                                    day = workout['day']
+                                    if day not in days_dict:
+                                        days_dict[day] = []
+                                    days_dict[day].append(workout)
+                                
+                                # Display workouts by day
+                                day_names = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 
+                                            4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
+                                
+                                for day, day_workouts in sorted(days_dict.items()):
+                                    st.write(f"**{day_names.get(day, f'Day {day}')}** - {len(day_workouts)} exercises")
+                                    for workout in day_workouts[:3]:  # Show just a few exercises as preview
+                                        st.write(f"- {workout.get('title', 'Unknown exercise')}: {workout.get('target_sets', '?')} sets × {workout.get('target_reps', '?')} reps")
+                                    if len(day_workouts) > 3:
+                                        st.write(f"- ...and {len(day_workouts) - 3} more exercises")
+                        except Exception as e:
+                            st.warning(f"Unable to preview plan. The plan was created but preview failed.")
+                            if st.session_state.dev_mode:
+                                st.error(f"Debug - Error: {str(e)}")
+                        
+                        # Navigate back to plans view
+                        st.session_state.view = 'plans'
+                        st.button("Go to My Plans", on_click=go_to_plans)
                     
                     
                     # Group by day
