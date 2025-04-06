@@ -308,11 +308,18 @@ with tabs[0]:  # My Plans
                         go_to_week_view(plan['id'], week)
 
     elif st.session_state.view == 'week_summary':
-        # Get the selected plan details
-        db.cursor.execute("SELECT * FROM fitness_plans WHERE id = ?", (st.session_state.selected_plan,))
-        plan = db.cursor.fetchone()
-        
-        st.button("← Back to Plans", on_click=go_to_plans)
+    # Get the selected plan details
+    db.cursor.execute("SELECT * FROM fitness_plans WHERE id = ?", (st.session_state.selected_plan,))
+    plan = db.cursor.fetchone()
+    
+    st.button("← Back to Plans", on_click=go_to_plans)
+    
+    # Check if plan exists
+    if plan is None:
+        st.error("Plan not found. It may have been deleted.")
+        go_to_plans()
+        st.rerun()
+    else:
         st.header(f"{plan['name']} - Week {st.session_state.selected_week} Schedule")
 
         days = {
@@ -334,6 +341,7 @@ with tabs[0]:  # My Plans
                              key=f"day_{day_num}"):
                     go_to_day_view(st.session_state.selected_plan,
                                    st.session_state.selected_week, day_num)
+
 
     elif st.session_state.view == 'day_summary':
         st.button(
