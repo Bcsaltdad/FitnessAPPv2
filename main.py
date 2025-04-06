@@ -605,7 +605,7 @@ with tabs[2]:  # Create New Plan
                         
                         # Navigate back to plans view
                         st.session_state.view = 'plans'
-                        st.button("Go to My Plans", on_click=go_to_plans)
+                        st.button("Go to My Plans", on_click=go_to_plans,  key="go_to_plans_after_creation")
                     
                     
                     # Group by day
