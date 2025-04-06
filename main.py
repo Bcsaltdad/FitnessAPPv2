@@ -71,7 +71,24 @@ with tabs[0]:
             st.info("No active plans found. Create a new plan to get started!")
 
         for plan in active_plans:
-            st.subheader(f"📋 {plan['name']} - {plan['goal']}")
+            col1, col2, col3 = st.columns([3, 1, 0.5])
+            with col1:
+                st.subheader(f"📋 {plan['name']}")
+            with col2:
+                if f"edit_goal_{plan['id']}" not in st.session_state:
+                    st.session_state[f"edit_goal_{plan['id']}"] = False
+                
+                if st.session_state[f"edit_goal_{plan['id']}"]:
+                    new_goal = st.text_input("New Goal", value=plan['goal'], key=f"goal_input_{plan['id']}")
+                    if st.button("Save", key=f"save_goal_{plan['id']}"):
+                        db.update_plan_goal(plan['id'], new_goal)
+                        st.session_state[f"edit_goal_{plan['id']}"] = False
+                        st.rerun()
+                else:
+                    st.write(f"Goal: {plan['goal']}")
+            with col3:
+                if st.button("✏️", key=f"edit_btn_{plan['id']}"):
+                    st.session_state[f"edit_goal_{plan['id']}"] = True
 
             summary = db.get_plan_summary(plan['id'])
             if summary:

@@ -1,4 +1,3 @@
-
 import sqlite3
 from typing import List, Dict, Any
 
@@ -6,7 +5,7 @@ class ExerciseDatabase:
     def __init__(self, db_path: str = 'fitness.db'):
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor = self.conn.cursor()
-    
+
     def get_exercises_by_goal(self, goal: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Get exercises based on fitness goal"""
         mapping = {
@@ -14,9 +13,9 @@ class ExerciseDatabase:
             'cardio': ['Cardio', 'Plyometrics'],
             'flexibility': ['Stretching'],
         }
-        
+
         exercise_types = mapping.get(goal.lower(), ['Strength'])
-        
+
         query = '''
         SELECT e.*, GROUP_CONCAT(i.instruction) as instructions
         FROM exercises e
@@ -25,12 +24,12 @@ class ExerciseDatabase:
         GROUP BY e.id
         LIMIT ?
         '''.format(','.join(['?'] * len(exercise_types)))
-        
+
         self.cursor.execute(query, exercise_types + [limit])
         rows = self.cursor.fetchall()
-        
+
         return [self._row_to_dict(row) for row in rows]
-    
+
     def get_exercises_by_muscle(self, muscle: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Get exercises targeting specific muscle group"""
         query = '''
@@ -41,17 +40,17 @@ class ExerciseDatabase:
         GROUP BY e.id
         LIMIT ?
         '''
-        
+
         self.cursor.execute(query, (f'%{muscle}%', limit))
         rows = self.cursor.fetchall()
-        
+
         return [self._row_to_dict(row) for row in rows]
-    
+
     def _row_to_dict(self, row) -> Dict[str, Any]:
         """Convert a database row to a dictionary"""
         columns = [col[0] for col in self.cursor.description]
         return {columns[i]: row[i] for i in range(len(columns))}
-    
+
     def get_plan_summary(self, plan_id: int):
         """Get summary metrics for a plan"""
         query = '''
@@ -88,7 +87,7 @@ class ExerciseDatabase:
             (name, goal, duration_weeks, plan_details)
         )
         plan_id = self.cursor.lastrowid
-        
+
         # Generate workouts for the entire duration
         if goal == "Sports and Athletics":
             workout_types = {
@@ -98,7 +97,7 @@ class ExerciseDatabase:
                 "Core": ["Strength"],
                 "Conditioning": ["Cardio"]
             }
-            
+
             for week in range(1, duration_weeks + 1):
                 for day in range(1, 9):  # 8 workouts per week
                     # Determine workout focus based on day
@@ -110,7 +109,7 @@ class ExerciseDatabase:
                         focus = "Agility" if week % 2 == 0 else "Core"
                     else:  # Conditioning days
                         focus = "Conditioning"
-                    
+
                     # Get exercises for this focus
                     exercises = []
                     for exercise_type in workout_types[focus]:
@@ -120,18 +119,18 @@ class ExerciseDatabase:
                             ORDER BY RANDOM() 
                             LIMIT ?''', (exercise_type, 3))
                         exercises.extend(self.cursor.fetchall())
-                    
+
                     # Add exercises to plan
                     for exercise in exercises:
                         sets = 3 if focus in ["Power", "Strength"] else 4
                         reps = 5 if focus == "Power" else 12 if focus == "Strength" else 15
-                        
+
                         self.cursor.execute('''
                             INSERT INTO plan_workouts 
                             (plan_id, exercise_id, day_of_week, week_number, target_sets, target_reps)
                             VALUES (?, ?, ?, ?, ?, ?)
                         ''', (plan_id, exercise[0], day, week, sets, reps))
-        
+
         self.conn.commit()
         return plan_id
 
@@ -163,5 +162,14 @@ class ExerciseDatabase:
         )
         self.conn.commit()
 
+    def update_plan_goal(self, plan_id: int, new_goal: str):
+        """Update the goal of a fitness plan"""
+        self.cursor.execute(
+            'UPDATE fitness_plans SET goal = ? WHERE id = ?',
+            (new_goal, plan_id)
+        )
+        self.conn.commit()
+
     def close(self):
+        """Close the database connection"""
         self.conn.close()
