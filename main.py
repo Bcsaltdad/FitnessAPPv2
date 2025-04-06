@@ -128,6 +128,13 @@ with tabs[0]:  # My Plans
             # Group workouts by type
             workout_types = ["Power", "Strength", "Agility", "Core", "Conditioning"]
             for workout_type in workout_types:
+                # Get all workouts for this week
+                all_workouts = []
+                for day in range(1, 8):
+                    workouts = db.get_plan_workouts(plan['id'], week, day)
+                    if workouts:
+                        all_workouts.extend([(day, w) for w in workouts])
+                
                 relevant_workouts = [w for d, w in all_workouts if w['title'].startswith(workout_type)]
                 if relevant_workouts:
                     st.subheader(f"{workout_type} Workouts")
