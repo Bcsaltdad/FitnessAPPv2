@@ -57,8 +57,53 @@ class ExerciseDatabase:
             'INSERT INTO fitness_plans (name, goal, duration_weeks, plan_details) VALUES (?, ?, ?, ?)',
             (name, goal, duration_weeks, plan_details)
         )
+        plan_id = self.cursor.lastrowid
+        
+        # Generate workouts for the entire duration
+        if goal == "Sports and Athletics":
+            workout_types = {
+                "Power": ["Plyometrics", "Olympic Weightlifting"],
+                "Strength": ["Strength"],
+                "Agility": ["Plyometrics"],
+                "Core": ["Strength"],
+                "Conditioning": ["Cardio"]
+            }
+            
+            for week in range(1, duration_weeks + 1):
+                for day in range(1, 9):  # 8 workouts per week
+                    # Determine workout focus based on day
+                    if day in [1, 5]:  # Power days
+                        focus = "Power"
+                    elif day in [2, 6]:  # Strength days
+                        focus = "Strength"
+                    elif day in [3, 7]:  # Agility/Core days
+                        focus = "Agility" if week % 2 == 0 else "Core"
+                    else:  # Conditioning days
+                        focus = "Conditioning"
+                    
+                    # Get exercises for this focus
+                    exercises = []
+                    for exercise_type in workout_types[focus]:
+                        self.cursor.execute('''
+                            SELECT * FROM exercises 
+                            WHERE Type = ? 
+                            ORDER BY RANDOM() 
+                            LIMIT ?''', (exercise_type, 3))
+                        exercises.extend(self.cursor.fetchall())
+                    
+                    # Add exercises to plan
+                    for exercise in exercises:
+                        sets = 3 if focus in ["Power", "Strength"] else 4
+                        reps = 5 if focus == "Power" else 12 if focus == "Strength" else 15
+                        
+                        self.cursor.execute('''
+                            INSERT INTO plan_workouts 
+                            (plan_id, exercise_id, day_of_week, week_number, target_sets, target_reps)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        ''', (plan_id, exercise[0], day, week, sets, reps))
+        
         self.conn.commit()
-        return self.cursor.lastrowid
+        return plan_id
 
     def add_workout_to_plan(self, plan_id: int, exercise_id: int, day: int, week: int, sets: int, reps: int):
         self.cursor.execute(

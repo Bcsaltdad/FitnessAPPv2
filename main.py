@@ -1,7 +1,9 @@
 import streamlit as st
+import pandas as pd
+import json
+from exercise_utils import ExerciseDatabase
 
 # Initialize exercise database
-from exercise_utils import ExerciseDatabase
 db = ExerciseDatabase('fitness.db')
 
 # Page configuration for better mobile view
@@ -73,11 +75,11 @@ with tabs[1]:  # Fitness Plans
     # Create new plan section
     with st.expander("➕ Create New Plan", expanded=True):
         st.subheader("Create Your Personalized Fitness Plan")
-        
+
         # Step 1: Basic Info
         st.write("### Step 1: Basic Information")
         plan_name = st.text_input("Plan Name")
-        
+
         # Step 2: Goal Selection
         st.write("### Step 2: Select Your Primary Goal")
         plan_goal = st.selectbox(
@@ -91,7 +93,7 @@ with tabs[1]:  # Fitness Plans
             ],
             key="goal_filter_plan"
         )
-        
+
         # Step 3: Time Commitment
         st.write("### Step 3: Time Commitment")
         workouts_per_week = st.selectbox(
@@ -100,7 +102,7 @@ with tabs[1]:  # Fitness Plans
             index=2  # Default to 3 workouts
         )
         duration = st.number_input("Program duration (weeks)", min_value=4, value=8, max_value=52)
-        
+
         # Step 5: Equipment Access
         st.write("### Step 5: Equipment Access")
         equipment_access = st.multiselect(
@@ -108,7 +110,7 @@ with tabs[1]:  # Fitness Plans
             ["Full Gym", "Dumbbells", "Resistance Bands", "Pull-up Bar", "No Equipment"],
             default=["Full Gym"]
         )
-        
+
         # Step 6: Health Considerations
         st.write("### Step 6: Health Considerations")
         limitations = st.multiselect(
@@ -116,7 +118,7 @@ with tabs[1]:  # Fitness Plans
             ["None", "Lower Back", "Knees", "Shoulders", "Neck"],
             default=["None"]
         )
-        
+
         if st.button("Create Personalized Plan", use_container_width=True):
             # Store additional information in JSON format
             plan_details = {
