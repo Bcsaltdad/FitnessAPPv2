@@ -17,14 +17,12 @@ class WorkoutRecommender:
         - Dictionary with recommended workout
         """
         # Get user profile and active plans
-        user_profile = self.db.get_user_profile(user_id)
-        active_plans = self.db.get_active_plans()
-
-        if not plan_id and active_plans:
-            plan_id = active_plans[0]['id']
-
         if not plan_id:
-            return self._generate_default_workout(user_profile)
+            active_plans = self.db.get_active_plans(user_id)
+            if active_plans:
+                plan_id = active_plans[0]['id']
+            else:
+                return self._generate_default_workout(user_id)
 
         # Get current date information
         today = datetime.now()
@@ -38,7 +36,7 @@ class WorkoutRecommender:
         plan_start = self.db.cursor.fetchone()
 
         if not plan_start:
-            return self._generate_default_workout(user_profile)
+            return self._generate_default_workout(user_id)
 
         start_date = datetime.strptime(plan_start['created_date'], "%Y-%m-%d")
         days_since_start = (today - start_date).days
@@ -57,7 +55,7 @@ class WorkoutRecommender:
         if not workouts:
             # If no workouts scheduled for today, check if we need a recovery focus
             if self._needs_recovery(user_id):
-                return self._generate_recovery_workout(user_profile)
+                return self._generate_recovery_workout(user_id)
             else:
                 # Suggest a workout from another day this week
                 self.db.cursor.execute(
@@ -92,6 +90,7 @@ class WorkoutRecommender:
                     }
 
         # Check if user has already completed today's workout
+        completed_workouts = []
         for workout in workouts:
             self.db.cursor.execute(
                 """
@@ -102,13 +101,16 @@ class WorkoutRecommender:
             )
             if self.db.cursor.fetchone()[0] > 0:
                 # User already did this workout today
-                workouts.remove(workout)
+                completed_workouts.append(workout)
+
+        # Remove completed workouts
+        workouts = [w for w in workouts if w not in completed_workouts]
 
         if not workouts:
             return {
                 'type': 'completed',
                 'message': "You've completed all scheduled workouts for today! Would you like a bonus workout?",
-                'bonus_workout': self._generate_bonus_workout(user_profile, plan_id)
+                'bonus_workout': self._generate_bonus_workout(user_id, plan_id)
             }
 
         # Get exercise details for each workout
@@ -125,37 +127,51 @@ class WorkoutRecommender:
             if exercise:
                 workout_detail = dict(workout)
                 workout_detail.update({
-                    'exercise_type': exercise['type'],
-                    'equipment': exercise['equipment'],
-                    'muscle_group': exercise['muscle_group'],
-                    'level': exercise['level']
+                    'title': exercise['title'],
+                    'exercise_type': exercise.get('exercise_type', 'Strength'),
+                    'equipment': exercise.get('equipment', ''),
+                    'muscle_group': exercise.get('muscle_group', ''),
+                    'level': exercise.get('level', '')
                 })
                 result_workouts.append(workout_detail)
 
-        # Get progress tracking info
-        progress_tracker = self.db.get_progress_tracker()
-        recent_workouts = self._get_recent_workouts(user_id)
-
         # Generate personalized adjustment recommendations
         adjustments = []
-        for workout in result_workouts:
-            # Check if user has been progressing well on this exercise
-            self.db.cursor.execute(
-                """
-                SELECT progress_rating FROM progression_tracking
-                WHERE user_id = ? AND exercise_id = ?
-                ORDER BY date DESC LIMIT 1
-                """,
-                (user_id, workout['exercise_id'])
-            )
-            rating = self.db.cursor.fetchone()
+        # Check recent workouts to make appropriate recommendations
+        recent_workouts = self._get_recent_workouts(user_id)
 
-            if rating and rating[0] > 3:
-                # Good progress, recommend increasing weight
-                adjustments.append(f"Increase weight for {workout['title']} by 5-10% today")
-            elif rating and rating[0] < -2:
-                # Poor progress, recommend modifying approach
-                adjustments.append(f"Try different rep range for {workout['title']} today (e.g., 5x5 instead of 3x10)")
+        # Get previous workouts for the same exercises to track progress
+        for workout in result_workouts:
+            try:
+                # Check if there are previous logs for this exercise
+                self.db.cursor.execute(
+                    """
+                    SELECT * FROM workout_logs
+                    WHERE workout_id IN (
+                        SELECT id FROM plan_workouts 
+                        WHERE exercise_id = ? AND user_id = ?
+                    )
+                    ORDER BY date DESC
+                    LIMIT 3
+                    """,
+                    (workout['exercise_id'], user_id)
+                )
+                previous_logs = self.db.cursor.fetchall()
+
+                if previous_logs:
+                    last_log = previous_logs[0]
+                    # Check if weight has increased over time
+                    if len(previous_logs) >= 2:
+                        weight_trend = last_log['weight'] - previous_logs[-1]['weight']
+                        if weight_trend <= 0:
+                            adjustments.append(f"Try to increase weight on {workout['title']} today")
+
+                    # Check if reps have been consistent
+                    if last_log['sets_completed'] < last_log['target_sets'] or last_log['reps_completed'] < last_log['target_reps']:
+                        adjustments.append(f"Focus on completing all {workout['target_sets']} sets of {workout['title']}")
+            except Exception as e:
+                # Skip this adjustment if there's an error
+                pass
 
         return {
             'type': 'scheduled',
@@ -182,7 +198,7 @@ class WorkoutRecommender:
         # If more than 5 workouts in last 3 days, probably needs recovery
         return recent_workout_count > 5
 
-    def _generate_recovery_workout(self, user_profile):
+    def _generate_recovery_workout(self, user_id):
         """Generate a recovery-focused workout"""
         recovery_options = [
             {
@@ -222,7 +238,7 @@ class WorkoutRecommender:
             'workout': selected
         }
 
-    def _generate_bonus_workout(self, user_profile, plan_id):
+    def _generate_bonus_workout(self, user_id, plan_id):
         """Generate a bonus workout after completing scheduled training"""
 
         # Get plan's goal
@@ -234,7 +250,7 @@ class WorkoutRecommender:
         goal = plan['goal'] if plan else 'General Fitness'
 
         # Get recently worked muscle groups to avoid
-        recent_muscles = self._get_recent_muscle_groups(1)  # User ID 1
+        recent_muscles = self._get_recent_muscle_groups(user_id)
 
         # Determine appropriate bonus workout type
         if 'Body Building' in goal:
@@ -270,38 +286,48 @@ class WorkoutRecommender:
 
     def _get_exercises_for_muscle_group(self, muscle_group, count=3):
         """Get exercises targeting a specific muscle group"""
-        self.db.cursor.execute(
-            """
-            SELECT * FROM exercises
-            WHERE muscle_group = ?
-            ORDER BY RANDOM()
-            LIMIT ?
-            """,
-            (muscle_group, count)
-        )
-        exercises = self.db.cursor.fetchall()
+        try:
+            self.db.cursor.execute(
+                """
+                SELECT * FROM exercises
+                WHERE muscle_group LIKE ?
+                ORDER BY RANDOM()
+                LIMIT ?
+                """,
+                (f"%{muscle_group}%", count)
+            )
+            exercises = self.db.cursor.fetchall()
 
-        # Format exercises for display
-        return [{'title': ex['title'], 'instructions': ex.get('instructions', '')} for ex in exercises]
+            # Format exercises for display
+            return [{'title': ex['title'], 'instructions': ex.get('instructions', '')} for ex in exercises]
+        except Exception as e:
+            # Return default exercises if there's an error
+            return [
+                {'title': 'Dumbbell Curls', 'instructions': '3 sets of 12 reps'},
+                {'title': 'Push-ups', 'instructions': '3 sets of 10-15 reps'},
+                {'title': 'Bodyweight Squats', 'instructions': '3 sets of 15 reps'}
+            ]
 
     def _get_recent_muscle_groups(self, user_id, days=2):
         """Get muscle groups worked in the last few days"""
         cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
 
-        self.db.cursor.execute(
-            """
-            SELECT DISTINCT e.muscle_group
-            FROM workout_logs wl
-            JOIN plan_workouts pw ON wl.workout_id = pw.id
-            JOIN exercises e ON pw.exercise_id = e.id
-            WHERE wl.date >= ? AND pw.plan_id IN (
-                SELECT id FROM fitness_plans WHERE user_id = ?
+        try:
+            self.db.cursor.execute(
+                """
+                SELECT DISTINCT e.muscle_group
+                FROM workout_logs wl
+                JOIN plan_workouts pw ON wl.workout_id = pw.id
+                JOIN exercises e ON pw.exercise_id = e.id
+                WHERE wl.date >= ? AND wl.user_id = ?
+                """,
+                (cutoff_date, user_id)
             )
-            """,
-            (cutoff_date, user_id)
-        )
 
-        return [row[0] for row in self.db.cursor.fetchall() if row[0]]
+            return [row['muscle_group'] for row in self.db.cursor.fetchall() if row['muscle_group']]
+        except Exception as e:
+            # Return empty list if there's an error
+            return []
 
     def _get_muscle_recovery_status(self, user_id):
         """Get recovery status of major muscle groups"""
@@ -310,32 +336,128 @@ class WorkoutRecommender:
 
         for muscle in muscle_groups:
             # Check when this muscle was last trained
+            try:
+                self.db.cursor.execute(
+                    """
+                    SELECT MAX(wl.date) as last_date
+                    FROM workout_logs wl
+                    JOIN plan_workouts pw ON wl.workout_id = pw.id
+                    JOIN exercises e ON pw.exercise_id = e.id
+                    WHERE e.muscle_group LIKE ? AND wl.user_id = ?
+                    """,
+                    (f"%{muscle}%", user_id)
+                )
+
+                result = self.db.cursor.fetchone()
+                last_trained = result['last_date'] if result else None
+
+                if not last_trained:
+                    recovery_status[muscle] = "Ready"
+                    continue
+
+                last_date = datetime.strptime(last_trained, "%Y-%m-%d")
+                days_since = (datetime.now() - last_date).days
+
+                if days_since <= 1:
+                    status = "Recovery needed"
+                elif days_since <= 2:
+                    status = "Partial recovery"
+                else:
+                    status = "Ready"
+
+                recovery_status[muscle] = f"{status} ({days_since} days)"
+            except Exception as e:
+                recovery_status[muscle] = "Ready"
+
+        return recovery_status
+
+    def _get_recent_workouts(self, user_id, days=7):
+        """Get recent workouts for a user"""
+        cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+
+        try:
             self.db.cursor.execute(
                 """
-                SELECT MAX(wl.date) 
+                SELECT wl.*, pw.exercise_id, e.title, e.muscle_group
                 FROM workout_logs wl
                 JOIN plan_workouts pw ON wl.workout_id = pw.id
                 JOIN exercises e ON pw.exercise_id = e.id
-                WHERE e.muscle_group = ? AND wl.user_id = ?
+                WHERE wl.date >= ? AND wl.user_id = ?
+                ORDER BY wl.date DESC
                 """,
-                (muscle, user_id)
+                (cutoff_date, user_id)
             )
 
-            last_trained = self.db.cursor.fetchone()[0]
+            return self.db.cursor.fetchall()
+        except Exception as e:
+            # Return empty list if there's an error
+            return []
 
-            if not last_trained:
-                recovery_status[muscle] = "Ready"
-                continue
+    def _generate_default_workout(self, user_id):
+        """Generate a default workout when no plans are available"""
+        try:
+            # Get user's experience level if available
+            self.db.cursor.execute(
+                """
+                SELECT plan_details FROM fitness_plans 
+                WHERE user_id = ? 
+                ORDER BY created_date DESC LIMIT 1
+                """,
+                (user_id,)
+            )
 
-            last_date = datetime.strptime(last_trained, "%Y-%m-%d")
-            days_since = (datetime.now() - last_date).days
-            recovery_status[muscle] = f"{days_since} days"
+            result = self.db.cursor.fetchone()
+            experience = "Beginner"  # Default
 
-        return recovery_status
-    def _get_recent_workouts(self, user_id):
-        pass
-    def _generate_default_workout(self, user_profile):
-        pass
+            if result and result['plan_details']:
+                plan_details = json.loads(result['plan_details'])
+                experience = plan_details.get('experience_level', 'Beginner')
+
+            # Get random exercises based on experience
+            self.db.cursor.execute(
+                """
+                SELECT * FROM exercises
+                WHERE level = ?
+                ORDER BY RANDOM()
+                LIMIT 6
+                """,
+                (experience,)
+            )
+
+            exercises = self.db.cursor.fetchall()
+
+            workout_details = []
+            for exercise in exercises:
+                if exercise['exercise_type'] == 'Compound':
+                    sets, reps = (3, 10) if experience == 'Beginner' else (4, 8)
+                else:
+                    sets, reps = (3, 12) if experience == 'Beginner' else (3, 15)
+
+                workout_details.append({
+                    'title': exercise['title'],
+                    'target_sets': sets,
+                    'target_reps': reps,
+                    'exercise_type': exercise['exercise_type'],
+                    'muscle_group': exercise['muscle_group']
+                })
+
+            return {
+                'type': 'default',
+                'message': "Here's a general workout since you don't have an active plan:",
+                'workouts': workout_details
+            }
+
+        except Exception as e:
+            # Return very basic workout if there's an error
+            return {
+                'type': 'default',
+                'message': "Here's a simple workout to get you started:",
+                'workouts': [
+                    {'title': 'Push-ups', 'target_sets': 3, 'target_reps': 10},
+                    {'title': 'Bodyweight Squats', 'target_sets': 3, 'target_reps': 15},
+                    {'title': 'Plank', 'target_sets': 3, 'target_reps': 30}
+                ]
+            }
 
 
 class WorkoutEngine:
@@ -357,10 +479,10 @@ class WorkoutEngine:
             if exercise:
                 workout_detail = dict(workout)
                 workout_detail.update({
-                    'exercise_type': exercise['type'],
-                    'equipment': exercise['equipment'],
-                    'muscle_group': exercise['muscle_group'],
-                    'level': exercise['level']
+                    'exercise_type': exercise.get('exercise_type', 'Strength'),
+                    'equipment': exercise.get('equipment', ''),
+                    'muscle_group': exercise.get('muscle_group', ''),
+                    'level': exercise.get('level', '')
                 })
                 result_workouts.append(workout_detail)
 
