@@ -58,3 +58,21 @@ def get_exercise_by_id(exercise_id):
         return json.loads(data.decode("utf-8"))
     except:
         return None
+
+def test_api_response():
+    """Test function to inspect API response structure"""
+    # Fetch a small batch of exercises
+    exercises = fetch_exercises(limit=1)
+    if exercises and len(exercises) > 0:
+        # Get the first exercise
+        exercise = exercises[0]
+        print("\nAPI Response Structure:")
+        print("------------------------")
+        for key, value in exercise.items():
+            print(f"{key}: {type(value).__name__} = {value}")
+        return exercise
+    return None
+
+# Run the test if this file is run directly
+if __name__ == "__main__":
+    test_api_response()
