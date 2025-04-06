@@ -21,9 +21,9 @@ class WorkoutPlanner:
     def _select_exercises_for_focus(self, day_focus, equipment, limitations, experience_level, goal):
         """Select appropriate exercises for a specific workout focus"""
         exercise_count = {
-            "Beginner": {"Compound": 2, "Isolation": 2, "Cardio": 1, "Mobility": 1},
-            "Intermediate": {"Compound": 3, "Isolation": 3, "Cardio": 1, "Mobility": 1},
-            "Advanced": {"Compound": 4, "Isolation": 4, "Cardio": 1, "Mobility": 1}
+            "Beginner": {"Compound": 3, "Isolation": 3, "Cardio": 2, "Mobility": 2},
+            "Intermediate": {"Compound": 4, "Isolation": 4, "Cardio": 2, "Mobility": 2},
+            "Advanced": {"Compound": 5, "Isolation": 5, "Cardio": 3, "Mobility": 2}
         }.get(experience_level, {"Compound": 2, "Isolation": 2, "Cardio": 1, "Mobility": 1})
 
         # Adjust based on goal
@@ -72,11 +72,11 @@ class WorkoutPlanner:
                 count
             ]
 
-            self.db.cursor.execute(query, params)
-            rows = self.db.cursor.fetchall()
+            self.cursor.execute(query, params)
+            rows = self.cursor.fetchall()
 
             for row in rows:
-                exercise = dict(zip([col[0] for col in self.db.cursor.description], row))
+                exercise = dict(zip([col[0] for col in self.cursor.description], row))
                 exercises.append(exercise)
 
         return exercises

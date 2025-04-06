@@ -19,7 +19,10 @@ def setup_database():
         equipment TEXT,
         level TEXT,
         rating FLOAT,
-        rating_desc TEXT
+        rating_desc TEXT,
+        photo_url TEXT,
+        video_url TEXT,
+        detailed_instructions TEXT
     )''')
     
     # Create muscles table for target muscles
