@@ -52,6 +52,36 @@ class ExerciseDatabase:
         columns = [col[0] for col in self.cursor.description]
         return {columns[i]: row[i] for i in range(len(columns))}
     
+    def get_plan_summary(self, plan_id: int):
+        """Get summary metrics for a plan"""
+        query = '''
+        SELECT 
+            w.week_number,
+            COUNT(DISTINCT w.day_of_week) as days_worked,
+            COUNT(l.id) as exercises_completed,
+            AVG(l.weight) as avg_weight
+        FROM plan_workouts w
+        LEFT JOIN workout_logs l ON w.id = l.plan_workout_id
+        WHERE w.plan_id = ?
+        GROUP BY w.week_number
+        ORDER BY w.week_number
+        '''
+        self.cursor.execute(query, (plan_id,))
+        return [self._row_to_dict(row) for row in self.cursor.fetchall()]
+
+    def get_active_plans(self):
+        """Get all active fitness plans"""
+        self.cursor.execute('SELECT * FROM fitness_plans WHERE is_active = 1')
+        return [self._row_to_dict(row) for row in self.cursor.fetchall()]
+
+    def toggle_plan_status(self, plan_id: int, is_active: bool):
+        """Toggle plan active status"""
+        self.cursor.execute(
+            'UPDATE fitness_plans SET is_active = ? WHERE id = ?',
+            (is_active, plan_id)
+        )
+        self.conn.commit()
+
     def create_fitness_plan(self, name: str, goal: str, duration_weeks: int, plan_details: str = None) -> int:
         self.cursor.execute(
             'INSERT INTO fitness_plans (name, goal, duration_weeks, plan_details) VALUES (?, ?, ?, ?)',

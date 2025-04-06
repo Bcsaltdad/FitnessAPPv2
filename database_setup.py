@@ -50,6 +50,7 @@ def setup_database():
         goal TEXT,
         duration_weeks INTEGER,
         plan_details TEXT,
+        is_active BOOLEAN DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
     

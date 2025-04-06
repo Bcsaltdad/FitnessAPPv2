@@ -71,6 +71,31 @@ with tabs[0]:  # Exercise Library
 
 with tabs[1]:  # Fitness Plans
     st.header("Fitness Plans")
+    
+    # Active Plans Dashboard
+    st.subheader("Active Plans")
+    active_plans = db.get_active_plans()
+    
+    for plan in active_plans:
+        with st.expander(f"📊 {plan['name']} - Progress Dashboard", expanded=True):
+            # Plan summary metrics
+            summary = db.get_plan_summary(plan['id'])
+            
+            # Create summary table
+            if summary:
+                df = pd.DataFrame(summary)
+                df.columns = ['Week', 'Days Worked', 'Exercises Completed', 'Avg Weight']
+                st.dataframe(df, use_container_width=True)
+            
+            # Quick actions
+            cols = st.columns([1, 1])
+            with cols[0]:
+                if st.button("Mark as Completed", key=f"complete_{plan['id']}"):
+                    db.toggle_plan_status(plan['id'], False)
+                    st.rerun()
+            with cols[1]:
+                if st.button("View Details", key=f"details_{plan['id']}"):
+                    st.session_state.selected_plan = plan['id']
 
     # Create new plan section
     with st.expander("➕ Create New Plan", expanded=True):
