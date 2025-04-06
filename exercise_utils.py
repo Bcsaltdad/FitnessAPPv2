@@ -108,8 +108,11 @@ class ExerciseDatabase:
                 "Conditioning": ["Cardio"]
             }
 
+            plan_details_obj = json.loads(plan_details)
+            workouts_per_week = plan_details_obj.get('workouts_per_week', 3)
+            
             for week in range(1, duration_weeks + 1):
-                for day in range(1, 9):  # 8 workouts per week
+                for day in range(1, workouts_per_week + 1):  # Honor selected workouts per week
                     # Determine workout focus based on day
                     if day in [1, 5]:  # Power days
                         focus = "Power"

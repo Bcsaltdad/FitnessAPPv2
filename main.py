@@ -206,9 +206,11 @@ with tabs[0]:
             week_cols = st.columns(4)
             for week in range(1, plan['duration_weeks'] + 1):
                 with week_cols[(week - 1) % 4]:
-                    if st.button(f"Week {week}",
-                                 key=f"week_{plan['id']}_{week}"):
-                        go_to_week_view(plan['id'], week)
+                    if st.button(f"Week {week}", key=f"week_{plan['id']}_{week}"):
+                        st.session_state.view = 'week_summary'
+                        st.session_state.selected_plan = plan['id']
+                        st.session_state.selected_week = week
+                        st.rerun()
 
     elif st.session_state.view == 'week_summary':
         plan = db.get_active_plans(st.session_state.user_id)[0]  # Get the selected plan
