@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 
 class ExerciseDatabase:
     def __init__(self, db_path: str = 'fitness.db'):
-        self.conn = sqlite3.connect(db_path)
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor = self.conn.cursor()
     
     def get_exercises_by_goal(self, goal: str, limit: int = 10) -> List[Dict[str, Any]]:
@@ -86,7 +86,7 @@ class ExerciseDatabase:
                     for exercise_type in workout_types[focus]:
                         self.cursor.execute('''
                             SELECT * FROM exercises 
-                            WHERE Type = ? 
+                            WHERE exercise_type = ? 
                             ORDER BY RANDOM() 
                             LIMIT ?''', (exercise_type, 3))
                         exercises.extend(self.cursor.fetchall())
