@@ -257,41 +257,20 @@ with tabs[0]:
 
 with tabs[1]:  # Exercise Library
     st.header("Exercise Library")
-    exercises = db.get_all_exercises()
+    goal = st.selectbox("Filter by Goal",
+                        ["Strength", "Cardio", "Flexibility"])
+    exercises = db.get_exercises_by_goal(goal)
 
     for exercise in exercises:
         with st.expander(f"📋 {exercise['title']}", expanded=False):
-            with st.form(f"exercise_form_{exercise['id']}"):
-                description = st.text_area("Description", value=exercise['description'])
-                instructions = st.text_area("Instructions", value=exercise.get('instructions', ''))
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    photo = st.file_uploader("Upload Photo", type=['png', 'jpg', 'jpeg'], key=f"photo_{exercise['id']}")
-                with col2:
-                    video = st.file_uploader("Upload Video", type=['mp4', 'mov', 'avi'], key=f"video_{exercise['id']}")
-                
-                if st.form_submit_button("Save Changes"):
-                    # Save media files if uploaded
-                    photo_url = db.save_media(photo, f"exercise_{exercise['id']}_photo") if photo else exercise.get('photo_url')
-                    video_url = db.save_media(video, f"exercise_{exercise['id']}_video") if video else exercise.get('video_url')
-                    
-                    # Update exercise details
-                    db.update_exercise(
-                        exercise['id'],
-                        description=description,
-                        instructions=instructions,
-                        photo_url=photo_url,
-                        video_url=video_url
-                    )
-                    st.success("Exercise updated successfully!")
-                    st.rerun()
-            
-            # Display current media if available
-            if exercise.get('photo_url'):
-                st.image(exercise['photo_url'], caption="Exercise Photo")
-            if exercise.get('video_url'):
-                st.video(exercise['video_url'])
+            st.write(f"**Description:** {exercise['description']}")
+            st.write(f"**Equipment:** {exercise['equipment']}")
+            st.write(f"**Level:** {exercise['level']}")
+            if exercise.get('instructions'):
+                st.write("**Instructions:**")
+                instructions = exercise['instructions'].split(',')
+                for i, instruction in enumerate(instructions, 1):
+                    st.write(f"{i}. {instruction.strip()}")
 
 with tabs[2]:  # Create New Plan
     st.header("Create Your Personalized Fitness Plan")

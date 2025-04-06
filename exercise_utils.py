@@ -6,45 +6,29 @@ class ExerciseDatabase:
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor = self.conn.cursor()
 
-    def get_all_exercises(self):
-        self.cursor.execute('SELECT * FROM exercises')
+    def get_exercises_by_goal(self, goal: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get exercises based on fitness goal"""
+        mapping = {
+            'strength': ['Strength', 'Powerlifting'],
+            'cardio': ['Cardio', 'Plyometrics'],
+            'flexibility': ['Stretching'],
+        }
+
+        exercise_types = mapping.get(goal.lower(), ['Strength'])
+
+        query = '''
+        SELECT e.*, GROUP_CONCAT(i.instruction) as instructions
+        FROM exercises e
+        LEFT JOIN exercise_instructions i ON e.id = i.exercise_id
+        WHERE e.exercise_type IN ({})
+        GROUP BY e.id
+        LIMIT ?
+        '''.format(','.join(['?'] * len(exercise_types)))
+
+        self.cursor.execute(query, exercise_types + [limit])
         rows = self.cursor.fetchall()
+
         return [self._row_to_dict(row) for row in rows]
-
-    def save_media(self, file, filename):
-        if not file:
-            return None
-
-        import os
-        media_dir = "media"
-        if not os.path.exists(media_dir):
-            os.makedirs(media_dir)
-
-        file_ext = os.path.splitext(file.name)[1]
-        filepath = os.path.join(media_dir, filename + file_ext)
-
-        with open(filepath, "wb") as f:
-            f.write(file.read())
-
-        return filepath
-
-    def update_exercise(self, exercise_id, **kwargs):
-        update_fields = []
-        values = []
-
-        for key, value in kwargs.items():
-            if value is not None:
-                update_fields.append(f"{key} = ?")
-                values.append(value)
-
-        if not update_fields:
-            return
-
-        values.append(exercise_id)
-        query = f"UPDATE exercises SET {', '.join(update_fields)} WHERE id = ?"
-
-        self.cursor.execute(query, values)
-        self.conn.commit()
 
     def get_exercises_by_muscle(self, muscle: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Get exercises targeting specific muscle group"""
@@ -88,7 +72,7 @@ class ExerciseDatabase:
         """Get active fitness plans for specific user"""
         self.cursor.execute('SELECT * FROM fitness_plans WHERE is_active = 1 AND user_id = ?', (user_id,))
         return [self._row_to_dict(row) for row in self.cursor.fetchall()]
-
+        
     def delete_plan(self, plan_id):
         """Delete a fitness plan"""
         self.cursor.execute('DELETE FROM fitness_plans WHERE id = ?', (plan_id,))
