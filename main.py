@@ -134,6 +134,8 @@ with st.sidebar:
             try:
                 active_plans = db.get_active_plans(st.session_state.user_id)
                 st.write(f"User has {len(active_plans)} active plans")
+            except: 
+                pass
 
         # Add more developer tools here as needed
         if st.sidebar.button("Reset User Data"):
