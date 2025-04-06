@@ -6,12 +6,13 @@ class ExerciseDatabase:
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor = self.conn.cursor()
 
+
     def get_exercises_by_goal(self, goal: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Get exercises based on fitness goal"""
         mapping = {
-            'strength': ['Strength', 'Powerlifting'],
-            'cardio': ['Cardio', 'Plyometrics'],
-            'flexibility': ['Stretching'],
+            'Strength': ['Strength', 'Powerlifting', 'Strongman','Plyometrics' 'Olympic Weightlifting'],
+            'Cardio': ['Cardio', 'Plyometrics'],
+            'Flexibility': ['Stretching'],
         }
 
         exercise_types = mapping.get(goal.lower(), ['Strength'])
@@ -70,13 +71,9 @@ class ExerciseDatabase:
 
     def get_active_plans(self, user_id):
         """Get active fitness plans for specific user"""
-        self.cursor.execute('''
-            SELECT * FROM fitness_plans 
-            WHERE user_id = ? AND is_active = 1
-            ORDER BY created_at DESC
-        ''', (user_id,))
+        self.cursor.execute('SELECT * FROM fitness_plans WHERE is_active = 1 AND user_id = ?', (user_id,))
         return [self._row_to_dict(row) for row in self.cursor.fetchall()]
-
+        
     def delete_plan(self, plan_id):
         """Delete a fitness plan"""
         self.cursor.execute('DELETE FROM fitness_plans WHERE id = ?', (plan_id,))
@@ -109,7 +106,7 @@ class ExerciseDatabase:
             }
 
             for week in range(1, duration_weeks + 1):
-                for day in range(1, 9):  # 8 workouts per week
+                for day in range(1, 11):  # 10 workouts per week
                     # Determine workout focus based on day
                     if day in [1, 5]:  # Power days
                         focus = "Power"
@@ -190,7 +187,13 @@ class ExerciseDatabase:
             "height": 175,  # cm
             "fitness_score": 3  # On a scale of 1-10
         }
-
+    def make_plan_inactive(self, plan_id):
+        """Set a specific plan to inactive."""
+        self.cursor.execute(
+            "UPDATE fitness_plans SET is_active = 0 WHERE id = ?",
+            (plan_id,)
+        )
+        self.conn.commit()
     def close(self):
         """Close the database connection"""
         self.conn.close()
