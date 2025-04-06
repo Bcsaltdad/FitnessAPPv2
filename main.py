@@ -203,7 +203,7 @@ with tabs[0]:
                         go_to_week_view(plan['id'], week)
 
     elif st.session_state.view == 'week_summary':
-        plan = db.get_active_plans()[0]  # Get the selected plan
+        plan = db.get_active_plans(st.session_state.user_id)[0]  # Get the selected plan
         st.button("← Back to Plans", on_click=go_to_plans)
         st.header(f"Week {st.session_state.selected_week} Schedule")
 
