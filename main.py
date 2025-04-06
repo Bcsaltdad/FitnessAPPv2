@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 import hashlib
+pip install matplotlib
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 from exercise_utils import ExerciseDatabase
