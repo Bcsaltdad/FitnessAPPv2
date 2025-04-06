@@ -72,18 +72,6 @@ class ExerciseDatabase:
         """Get active fitness plans for specific user"""
         self.cursor.execute('SELECT * FROM fitness_plans WHERE is_active = 1 AND user_id = ?', (user_id,))
         return [self._row_to_dict(row) for row in self.cursor.fetchall()]
-            with col1:
-                st.subheader(f"📋 {plan['name']}")
-            with col2:
-                st.write(f"Goal: {plan['goal']}")
-            with col3:
-                if st.button("✏️", key=f"edit_btn_{plan['id']}"):
-                    st.session_state[f"edit_goal_{plan['id']}"] = True
-            with col4:
-                if st.button("🗑️", key=f"delete_btn_{plan['id']}"):
-                    self.delete_plan(plan['id'])
-                    st.rerun()
-        return plans
         
     def delete_plan(self, plan_id):
         """Delete a fitness plan"""
