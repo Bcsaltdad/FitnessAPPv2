@@ -548,8 +548,8 @@ with tabs[2]:  # Create New Plan
                 if sport and sport not in specific_focus and specific_focus != ["None"]:
                     specific_focus.append(sport)
                 
-                # Generate the plan
                 try:
+                    # Generate the plan
                     success, result = generator.create_workout_plan(
                         user_id=st.session_state.user_id,
                         plan_name=plan_name,
@@ -561,9 +561,9 @@ with tabs[2]:  # Create New Plan
                         experience_level=experience_level,
                         preferred_cardio=preferred_cardio,
                         specific_focus=specific_focus,
-                        time_per_workout=time_per_workout,
-                        primary_sport=sport,  # Make sure you're passing the sport
-                        training_phase=training_phase  # Pass the training phase
+                        primary_sport=sport,
+                        training_phase=training_phase,
+                        time_per_workout=time_per_workout
                     )
                     
                     if success:
@@ -572,34 +572,29 @@ with tabs[2]:  # Create New Plan
                         
                         # Preview first week
                         st.write("### Preview of Week 1")
-                        try:
-                            workouts = db.get_plan_workouts(plan_id, 1, None)
+                        workouts = db.get_plan_workouts(plan_id, 1, None)
+                        
+                        if not workouts:
+                            st.info("No workouts found for week 1. Your plan has been created but may be empty.")
+                        else:
+                            # Group by day
+                            days_dict = {}
+                            for workout in workouts:
+                                day = workout['day']
+                                if day not in days_dict:
+                                    days_dict[day] = []
+                                days_dict[day].append(workout)
                             
-                            if not workouts:
-                                st.info("No workouts found for week 1. Your plan has been created but may be empty.")
-                            else:
-                                # Group by day
-                                days_dict = {}
-                                for workout in workouts:
-                                    day = workout['day']
-                                    if day not in days_dict:
-                                        days_dict[day] = []
-                                    days_dict[day].append(workout)
-                                
-                                # Display workouts by day
-                                day_names = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 
-                                            4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
-                                
-                                for day, day_workouts in sorted(days_dict.items()):
-                                    st.write(f"**{day_names.get(day, f'Day {day}')}** - {len(day_workouts)} exercises")
-                                    for workout in day_workouts[:3]:  # Show just a few exercises as preview
-                                        st.write(f"- {workout.get('title', 'Unknown exercise')}: {workout.get('target_sets', '?')} sets × {workout.get('target_reps', '?')} reps")
-                                    if len(day_workouts) > 3:
-                                        st.write(f"- ...and {len(day_workouts) - 3} more exercises")
-                        except Exception as e:
-                            st.warning(f"Unable to preview plan. The plan was created but preview failed.")
-                            if st.session_state.dev_mode:
-                                st.error(f"Debug - Error: {str(e)}")
+                            # Display workouts by day
+                            day_names = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 
+                                        4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
+                            
+                            for day, day_workouts in sorted(days_dict.items()):
+                                st.write(f"**{day_names.get(day, f'Day {day}')}** - {len(day_workouts)} exercises")
+                                for workout in day_workouts[:3]:  # Show just a few exercises as preview
+                                    st.write(f"- {workout.get('title', 'Unknown exercise')}: {workout.get('target_sets', '?')} sets × {workout.get('target_reps', '?')} reps")
+                                if len(day_workouts) > 3:
+                                    st.write(f"- ...and {len(day_workouts) - 3} more exercises")
                         
                         # Navigate back to plans view
                         st.session_state.view = 'plans'
