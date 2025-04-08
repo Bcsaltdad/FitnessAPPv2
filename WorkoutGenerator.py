@@ -17,8 +17,8 @@ class WorkoutGenerator:
                           duration_weeks: int, workouts_per_week: int, 
                           equipment_access: List[str], limitations: List[str],
                           experience_level: str, preferred_cardio: List[str] = None,
-                          specific_focus: List[str] = None,
-                          time_per_workout: int = 45) -> Tuple[bool, Union[int, str]]:
+                          specific_focus: List[str] = None, primary_sport: str = None,
+                          training_phase: str = None, time_per_workout: int = 45) -> Tuple[bool, Union[int, str]]:
         """
         Create a personalized workout plan based on user input.
         
@@ -33,17 +33,21 @@ class WorkoutGenerator:
             experience_level: User experience level
             preferred_cardio: Preferred cardio methods
             specific_focus: Areas to focus on
+            primary_sport: Primary sport focus
+            training_phase: Training phase
             time_per_workout: Minutes per workout
             
         Returns:
             Tuple of (success, result) where result is plan_id if successful or error message
         """
         try:
-            # Extract primary sport from specific focus or deduce it from plan goal
-            primary_sport = self._determine_primary_sport(specific_focus, plan_goal)
+            # Extract primary sport from specific focus or deduce it from plan goal if not provided
+            if primary_sport is None:
+                primary_sport = self._determine_primary_sport(specific_focus, plan_goal)
             
-            # Determine training phase
-            training_phase = self._determine_training_phase(plan_goal)
+            # Determine training phase if not provided
+            if training_phase is None:
+                training_phase = self._determine_training_phase(plan_goal)
             
             # Create or update user profile
             self._ensure_user_profile(
