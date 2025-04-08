@@ -132,7 +132,7 @@ class ExerciseDatabase:
         return self.cursor.fetchall()
     
     def get_plan_summary(self, plan_id):
-    """Get summary statistics for a fitness plan"""
+        """Get summary statistics for a fitness plan"""
         try:
             self.cursor.execute('''
                 SELECT 
