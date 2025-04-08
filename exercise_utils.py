@@ -132,13 +132,14 @@ class ExerciseDatabase:
         return self.cursor.fetchall()
     
     def get_plan_summary(self, plan_id):
-        """Get summary statistics for a fitness plan"""
+    """Get summary statistics for a fitness plan"""
+    try:
         self.cursor.execute('''
             SELECT 
                 pw.week,
                 COUNT(DISTINCT pw.id) as total_exercises,
-                COUNT(DISTINCT wl.id) as exercises_completed,
-                AVG(wl.weight_kg) as avg_weight,
+                COUNT(DISTINCT CASE WHEN wl.id IS NOT NULL THEN wl.id END) as exercises_completed,
+                IFNULL(AVG(wl.weight_kg), 0) as avg_weight,
                 COUNT(DISTINCT pw.day) as days_worked
             FROM plan_workouts pw
             LEFT JOIN workout_logs wl ON pw.id = wl.workout_id
@@ -147,6 +148,9 @@ class ExerciseDatabase:
             ORDER BY pw.week
         ''', (plan_id,))
         return self.cursor.fetchall()
+    except sqlite3.Error as e:
+        print(f"Error in get_plan_summary for plan_id {plan_id}: {e}")
+        return []
     
     def get_plan_workouts(self, plan_id, week, day):
         """Get workouts for a specific plan, week, and day"""
