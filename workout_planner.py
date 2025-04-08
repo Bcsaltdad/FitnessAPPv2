@@ -1,761 +1,1033 @@
+
+
+import sqlite3 import json from datetime import datetime class ExerciseDatabase: def __init__(self, db_path): """Initialize the database connection""" self.conn = sqlite3.connect(db_path) self.conn.row_factory = sqlite3.Row self.cursor = self.conn.cursor()
+
+pasted
+
+Help me handel an error in my code: File "/mount/src/fitnessappv2/main.py", line 286, in <module>
+    summary = db.get_plan_summary(plan['id'])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "/mount/src/fitnessappv2/exercise_utils.py", line 136, in get_plan_summary self.cursor.execute('''
+
+I belive it is caused here:
+
+I can help with this error. Looking at your code, it seems the issue is occurring when calling the get_plan_summary method on line 286 of your main.py file. Let's analyze the problem.
+
+The error is happening in the get_plan_summary method, which is located at line 136 in your exercise_utils.py file. Based on the code you've shared, this method is trying to execute an SQL query, but something is going wrong.
+
+Here's what might be causing the issue:
+
+The plan ID being passed might be invalid or missing
+There could be a SQL syntax error in the query
+There might be a problem with table relationships
+Looking at the get_plan_summary method in your pasted code:
+
+python
+def get_plan_summary(self, plan_id):
+    """Get summary statistics for a fitness plan"""
+    self.cursor.execute('''
+        SELECT 
+            pw.week,
+            COUNT(DISTINCT pw.id) as total_exercises,
+            COUNT(DISTINCT wl.id) as exercises_completed,
+            AVG(wl.weight_kg) as avg_weight,
+            COUNT(DISTINCT pw.day) as days_worked
+        FROM plan_workouts pw
+        LEFT JOIN workout_logs wl ON pw.id = wl.workout_id
+        WHERE pw.plan_id = ?
+        GROUP BY pw.week
+        ORDER BY pw.week
+    ''', (plan_id,))
+    return self.cursor.fetchall()
+Let's fix this issue. There are a few potential solutions:
+
+Make sure the plan exists and has a valid ID:
+python
+def get_plan_summary(self, plan_id):
+    """Get summary statistics for a fitness plan"""
+    # First check if the plan exists
+    self.cursor.execute("SELECT id FROM fitness_plans WHERE id = ?", (plan_id,))
+    if not self.cursor.fetchone():
+        print(f"Warning: No plan found with ID {plan_id}")
+        return []
+        
+    self.cursor.execute('''
+        SELECT 
+            pw.week,
+            COUNT(DISTINCT pw.id) as total_exercises,
+            COUNT(DISTINCT wl.id) as exercises_completed,
+            AVG(wl.weight_kg) as avg_weight,
+            COUNT(DISTINCT pw.day) as days_worked
+        FROM plan_workouts pw
+        LEFT JOIN workout_logs wl ON pw.id = wl.workout_id
+        WHERE pw.plan_id = ?
+        GROUP BY pw.week
+        ORDER BY pw.week
+    ''', (plan_id,))
+    return self.cursor.fetchall()
+Add error handling to catch and diagnose potential SQL errors:
+python
+def get_plan_summary(self, plan_id):
+    """Get summary statistics for a fitness plan"""
+    try:
+        self.cursor.execute('''
+            SELECT 
+                pw.week,
+                COUNT(DISTINCT pw.id) as total_exercises,
+                COUNT(DISTINCT wl.id) as exercises_completed,
+                AVG(wl.weight_kg) as avg_weight,
+                COUNT(DISTINCT pw.day) as days_worked
+            FROM plan_workouts pw
+            LEFT JOIN workout_logs wl ON pw.id = wl.workout_id
+            WHERE pw.plan_id = ?
+            GROUP BY pw.week
+            ORDER BY pw.week
+        ''', (plan_id,))
+        return self.cursor.fetchall()
+    except sqlite3.Error as e:
+        print(f"Error in get_plan_summary for plan_id {plan_id}: {e}")
+        # Return empty list on error
+        return []
+Check for null values in the SQL query:
+python
+def get_plan_summary(self, plan_id):
+    """Get summary statistics for a fitness plan"""
+    try:
+        self.cursor.execute('''
+            SELECT 
+                pw.week,
+                COUNT(DISTINCT pw.id) as total_exercises,
+                COUNT(DISTINCT CASE WHEN wl.id IS NOT NULL THEN wl.id END) as exercises_completed,
+                IFNULL(AVG(wl.weight_kg), 0) as avg_weight,
+                COUNT(DISTINCT pw.day) as days_worked
+            FROM plan_workouts pw
+            LEFT JOIN workout_logs wl ON pw.id = wl.workout_id
+            WHERE pw.plan_id = ?
+            GROUP BY pw.week
+            ORDER BY pw.week
+        ''', (plan_id,))
+        return self.cursor.fetchall()
+    except sqlite3.Error as e:
+        print(f"Error in get_plan_summary for plan_id {plan_id}: {e}")
+        return []
+I'd recommend implementing the third option, as it's the most comprehensive solution. It:
+
+Adds error handling
+Properly handles NULL values in the SQL query
+Returns an empty list if there's an error, which will prevent the application from crashing
+This should fix the error you're encountering when calling db.get_plan_summary(plan['id']) in your main.py file.
+
+
+import streamlit as st import pandas as pd import json import hashlib from datetime import datetime, timedelta from exercise_utils import ExerciseDatabase from workout_planner import WorkoutPlanner from WorkoutGenerator import WorkoutGenerator # Initialize session state for user management if 'user
+
+pasted
+
+Creating a new plan using hte create new plan tab here does not work; let me know if oyu need to see my other code
+
+Based on the code snippets you've shared, I can identify several issues that might be causing problems when creating a new plan. Let's focus on fixing the most likely problems:
+
+Main Issues:
+Your get_plan_summary method is failing with an error.
+There are potential issues in the create plan workflow.
+Let's fix these issues one by one:
+
+1. First, let's fix the get_plan_summary method as I recommended earlier:
+python
+def get_plan_summary(self, plan_id):
+    """Get summary statistics for a fitness plan"""
+    try:
+        self.cursor.execute('''
+            SELECT 
+                pw.week,
+                COUNT(DISTINCT pw.id) as total_exercises,
+                COUNT(DISTINCT CASE WHEN wl.id IS NOT NULL THEN wl.id END) as exercises_completed,
+                IFNULL(AVG(wl.weight_kg), 0) as avg_weight,
+                COUNT(DISTINCT pw.day) as days_worked
+            FROM plan_workouts pw
+            LEFT JOIN workout_logs wl ON pw.id = wl.workout_id
+            WHERE pw.plan_id = ?
+            GROUP BY pw.week
+            ORDER BY pw.week
+        ''', (plan_id,))
+        return self.cursor.fetchall()
+    except sqlite3.Error as e:
+        print(f"Error in get_plan_summary for plan_id {plan_id}: {e}")
+        return []
+2. Issues in the Create Plan workflow:
+Looking at the code where you create a new plan, there are a few potential issues:
+
+You're using WorkoutGenerator which we don't have the full code for.
+There's duplicated code in the plan creation section.
+There's a potential issue with accessing workouts after plan creation.
+Here's how to fix the plan creation section:
+
+python
+if st.button("Create Personalized Plan"):
+    if not plan_name:
+        st.error("Please enter a plan name.")
+    else:
+        with st.spinner("Creating your personalized workout plan..."):
+            # Create workout generator instance
+            planner = WorkoutPlanner(db.conn)
+            generator = WorkoutGenerator(db, planner, None)  # Engine can be None for now
+            
+            # If primary sport is "None", set it to None
+            sport = None if primary_sport == "None" else primary_sport
+            
+            # Add sport to specific_focus if selected
+            if sport and sport not in specific_focus and specific_focus != ["None"]:
+                specific_focus.append(sport)
+            
+            # Generate the plan
+            try:
+                success, result = generator.create_workout_plan(
+                    user_id=st.session_state.user_id,
+                    plan_name=plan_name,
+                    plan_goal=plan_goal,
+                    duration_weeks=duration,
+                    workouts_per_week=workouts_per_week,
+                    equipment_access=equipment_access,
+                    limitations=limitations,
+                    experience_level=experience_level,
+                    preferred_cardio=preferred_cardio,
+                    specific_focus=specific_focus,
+                    time_per_workout=time_per_workout,
+                    primary_sport=sport,  # Make sure you're passing the sport
+                    training_phase=training_phase  # Pass the training phase
+                )
+                
+                if success:
+                    plan_id = result
+                    st.success("Your personalized plan has been created!")
+                    
+                    # Preview first week
+                    st.write("### Preview of Week 1")
+                    try:
+                        workouts = db.get_plan_workouts(plan_id, 1, None)
+                        
+                        if not workouts:
+                            st.info("No workouts found for week 1. Your plan has been created but may be empty.")
+                        else:
+                            # Group by day
+                            days_dict = {}
+                            for workout in workouts:
+                                day = workout['day']
+                                if day not in days_dict:
+                                    days_dict[day] = []
+                                days_dict[day].append(workout)
+                            
+                            # Display workouts by day
+                            day_names = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 
+                                        4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
+                            
+                            for day, day_workouts in sorted(days_dict.items()):
+                                st.write(f"**{day_names.get(day, f'Day {day}')}** - {len(day_workouts)} exercises")
+                                for workout in day_workouts[:3]:  # Show just a few exercises as preview
+                                    st.write(f"- {workout.get('title', 'Unknown exercise')}: {workout.get('target_sets', '?')} sets × {workout.get('target_reps', '?')} reps")
+                                if len(day_workouts) > 3:
+                                    st.write(f"- ...and {len(day_workouts) - 3} more exercises")
+                    except Exception as e:
+                        st.warning(f"Unable to preview plan. The plan was created but preview failed.")
+                        if st.session_state.dev_mode:
+                            st.error(f"Debug - Error: {str(e)}")
+                    
+                    # Navigate back to plans view
+                    st.session_state.view = 'plans'
+                    if st.button("Go to My Plans", key="go_to_plans_after_creation"):
+                        go_to_plans()
+                else:
+                    if isinstance(result, int):
+                        plan_id = result
+                        st.warning("Basic plan created. Some advanced features couldn't be applied.")
+                        st.session_state.view = 'plans'
+                        if st.button("Go to My Plans", key="go_to_basic_plans"):
+                            go_to_plans()
+                    else:
+                        st.error(f"Error creating workout plan: {result}")
+            except Exception as e:
+                st.error(f"An error occurred while creating your plan: {str(e)}")
+                if st.session_state.dev_mode:
+                    st.exception(e)
+3. Consider debugging the WorkoutGenerator class:
+Without seeing your WorkoutGenerator class, I'm guessing it's having issues creating the plan. You might want to wrap its code in a try/except block to understand what's going wrong.
+
+4. Additional Improvements:
+Fix the duplicated code in the Create Plan section - I've removed duplicated sections in the code above.
+Add proper error handling throughout your application.
+Enhance the create_workout_plan method call - I've added primary_sport and training_phase parameters that might be missing.
+Add debug logging - In developer mode, you can display more detailed error information.
+If this doesn't solve your issue, I'd need to see the implementation of your WorkoutGenerator class, particularly its create_workout_plan method, to provide more specific help. That's likely where the error is occurring.
+
+
+import streamlit as st import pandas as pd import json import hashlib from datetime import datetime, timedelta from exercise_utils import ExerciseDatabase from workout_planner import WorkoutPlanner from WorkoutGenerator import WorkoutGenerator # Initialize session state for user management if 'user
+
+pasted
+
+
+import logging from typing import Dict, List, Tuple, Any, Optional, Union from datetime import datetime class WorkoutGenerator: def __init__(self, db, planner, engine): """Initialize the workout generator with database and engine dependencies.""" self.db = db self.planne
+
+pasted
+
+
+import sqlite3 import json from datetime import datetime class ExerciseDatabase: def __init__(self, db_path): """Initialize the database connection""" self.conn = sqlite3.connect(db_path) self.conn.row_factory = sqlite3.Row self.cursor = self.conn.cursor()
+
+pasted
+
+
+import sqlite3 import json import datetime import logging from typing import Dict, List, Any, Tuple, Optional class WorkoutPlanner: def __init__(self, db_connection=None, db_path='fitness.db'): """ Initialize the workout planner with a database connection. Args:
+
+pasted
+
+You might need to rewrite how this functions for me becasue we are now broken I will attach my main and all of the pertenant codes:
+
+Looking at all the code you've shared, I can identify several issues that are causing your app to break when creating a new plan. Let's fix these problems one by one.
+
+1. First, let's fix the get_plan_summary method in your ExerciseDatabase class:
+python
+def get_plan_summary(self, plan_id):
+    """Get summary statistics for a fitness plan"""
+    try:
+        self.cursor.execute('''
+            SELECT 
+                pw.week,
+                COUNT(DISTINCT pw.id) as total_exercises,
+                COUNT(DISTINCT CASE WHEN wl.id IS NOT NULL THEN wl.id END) as exercises_completed,
+                IFNULL(AVG(wl.weight_kg), 0) as avg_weight,
+                COUNT(DISTINCT pw.day) as days_worked
+            FROM plan_workouts pw
+            LEFT JOIN workout_logs wl ON pw.id = wl.workout_id
+            WHERE pw.plan_id = ?
+            GROUP BY pw.week
+            ORDER BY pw.week
+        ''', (plan_id,))
+        return self.cursor.fetchall()
+    except sqlite3.Error as e:
+        print(f"Error in get_plan_summary for plan_id {plan_id}: {e}")
+        return []
+2. The issues in your create plan workflow:
+Looking at the create_workout_plan method in WorkoutGenerator, I noticed that it's not handling the primary_sport and training_phase parameters correctly. Let's fix that:
+
+python
+def create_workout_plan(self, user_id: int, plan_name: str, plan_goal: str,
+                      duration_weeks: int, workouts_per_week: int, 
+                      equipment_access: List[str], limitations: List[str],
+                      experience_level: str, preferred_cardio: List[str] = None,
+                      specific_focus: List[str] = None, primary_sport: str = None,
+                      training_phase: str = None, time_per_workout: int = 45) -> Tuple[bool, Union[int, str]]:
+    """
+    Create a personalized workout plan based on user input.
+    """
+    try:
+        # Extract primary sport from specific focus or deduce it from plan goal if not provided
+        if primary_sport is None:
+            primary_sport = self._determine_primary_sport(specific_focus, plan_goal)
+        
+        # Determine training phase if not provided
+        if training_phase is None:
+            training_phase = self._determine_training_phase(plan_goal)
+        
+        # Create or update user profile
+        self._ensure_user_profile(
+            user_id,
+            experience_level,
+            primary_sport,
+            workouts_per_week,
+            time_per_workout,
+            plan_goal,
+            specific_focus
+        )
+        
+        # Get or create a sports profile
+        sports_profile = self._get_sports_profile(primary_sport)
+        
+        # Get user profile for plan generation
+        user_profile = self.db.get_user_profile(user_id)
+        
+        if not user_profile:
+            # Create a minimal user profile from parameters
+            user_profile = {
+                "user_id": user_id,
+                "experience_level": experience_level,
+                "primary_sport": primary_sport,
+                "training_frequency": workouts_per_week,
+                "session_duration": time_per_workout,
+                "goals": [plan_goal]
+            }
+        
+        # Generate the intelligent workout plan
+        workout_plan = self.planner.generate_intelligent_plan(
+            user_profile=user_profile,
+            sports_profile=sports_profile,
+            duration_weeks=duration_weeks,
+            current_phase=training_phase
+        )
+        
+        # Add plan name before saving
+        workout_plan["plan_name"] = plan_name
+        
+        # Save the generated plan to the database
+        plan_id = self.planner.save_generated_plan(workout_plan)
+        
+        if not plan_id:
+            # Fall back to simpler plan generation if intelligent planning fails
+            logging.warning("Intelligent plan generation failed, falling back to basic planning")
+            plan_id = self._create_basic_plan(
+                user_id, plan_name, plan_goal, duration_weeks, 
+                workouts_per_week, experience_level
+            )
+            
+            if plan_id:
+                return True, plan_id
+            else:
+                return False, "Failed to create workout plan"
+        
+        return True, plan_id
+        
+    except Exception as e:
+        logging.error(f"Error creating workout plan: {e}")
+        return False, str(e)
+3. Fix the duplicated code in the Create Plan section of your main.py file:
+python
+if st.button("Create Personalized Plan"):
+    if not plan_name:
+        st.error("Please enter a plan name.")
+    else:
+        with st.spinner("Creating your personalized workout plan..."):
+            # Create workout generator instance
+            planner = WorkoutPlanner(db.conn)
+            generator = WorkoutGenerator(db, planner, None)  # Engine can be None for now
+            
+            # If primary sport is "None", set it to None
+            sport = None if primary_sport == "None" else primary_sport
+            
+            # Add sport to specific_focus if selected
+            if sport and sport not in specific_focus and specific_focus != ["None"]:
+                specific_focus.append(sport)
+            
+            try:
+                # Generate the plan
+                success, result = generator.create_workout_plan(
+                    user_id=st.session_state.user_id,
+                    plan_name=plan_name,
+                    plan_goal=plan_goal,
+                    duration_weeks=duration,
+                    workouts_per_week=workouts_per_week,
+                    equipment_access=equipment_access,
+                    limitations=limitations,
+                    experience_level=experience_level,
+                    preferred_cardio=preferred_cardio,
+                    specific_focus=specific_focus,
+                    primary_sport=sport,
+                    training_phase=training_phase,
+                    time_per_workout=time_per_workout
+                )
+                
+                if success:
+                    plan_id = result
+                    st.success("Your personalized plan has been created!")
+                    
+                    # Preview first week
+                    st.write("### Preview of Week 1")
+                    workouts = db.get_plan_workouts(plan_id, 1, None)
+                    
+                    if not workouts:
+                        st.info("No workouts found for week 1. Your plan has been created but may be empty.")
+                    else:
+                        # Group by day
+                        days_dict = {}
+                        for workout in workouts:
+                            day = workout['day']
+                            if day not in days_dict:
+                                days_dict[day] = []
+                            days_dict[day].append(workout)
+                        
+                        # Display workouts by day
+                        day_names = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 
+                                    4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
+                        
+                        for day, day_workouts in sorted(days_dict.items()):
+                            st.write(f"**{day_names.get(day, f'Day {day}')}** - {len(day_workouts)} exercises")
+                            for workout in day_workouts[:3]:  # Show just a few exercises as preview
+                                st.write(f"- {workout.get('title', 'Unknown exercise')}: {workout.get('target_sets', '?')} sets × {workout.get('target_reps', '?')} reps")
+                            if len(day_workouts) > 3:
+                                st.write(f"- ...and {len(day_workouts) - 3} more exercises")
+                    
+                    # Navigate back to plans view
+                    st.session_state.view = 'plans'
+                    if st.button("Go to My Plans", key="go_to_plans_after_creation"):
+                        go_to_plans()
+                else:
+                    if isinstance(result, int):
+                        plan_id = result
+                        st.warning("Basic plan created. Some advanced features couldn't be applied.")
+                        st.session_state.view = 'plans'
+                        if st.button("Go to My Plans", key="go_to_basic_plans"):
+                            go_to_plans()
+                    else:
+                        st.error(f"Error creating workout plan: {result}")
+            except Exception as e:
+                st.error(f"An error occurred while creating your plan: {str(e)}")
+                if st.session_state.dev_mode:
+                    st.exception(e)
+4. Fix for the save_generated_plan method in WorkoutPlanner:
+python
+def save_generated_plan(self, plan_data: Dict) -> int:
+    """Save a generated workout plan to the database."""
+    try:
+        # Create the plan record
+        user_id = plan_data["user_id"]
+        plan_name = plan_data.get("plan_name", "Intelligent Workout Plan")
+        goals = ", ".join(plan_data.get("focus_areas", ["General Fitness"]))
+        duration_weeks = len(plan_data["weeks"])
+        primary_sport = plan_data.get("primary_sport")
+        current_phase = plan_data.get("current_phase", "General")
+        
+        # Create the plan
+        plan_id = self.create_workout_plan(
+            user_id,
+            plan_name,
+            goals,
+            duration_weeks,
+            primary_sport,
+            current_phase
+        )
+        
+        # Add exercises to the plan
+        for week in plan_data["weeks"]:
+            week_number = week["week_number"]
+            
+            for workout in week["workouts"]:
+                day_number = workout["day"]
+                
+                for exercise in workout["exercises"]:
+                    exercise_id = exercise["id"]
+                    target_sets = exercise.get("target_sets", 3)
+                    target_reps = exercise.get("target_reps", "8-12")
+                    
+                    # Convert string reps to a number for storage if needed
+                    if isinstance(target_reps, str) and "-" in target_reps:
+                        # Use the average value
+                        try:
+                            low, high = target_reps.split("-")
+                            target_reps = (int(low) + int(high)) // 2
+                        except:
+                            target_reps = 10  # Default
+                    
+                    # Add the workout to the plan
+                    self.add_workout_to_plan(
+                        plan_id,
+                        exercise_id,
+                        week_number,
+                        day_number,
+                        target_sets,
+                        target_reps
+                    )
+        
+        return plan_id
+    except Exception as e:
+        logging.error(f"Error saving generated plan: {e}")
+        return None
+Comprehensive Solution:
+The main issues I've identified are:
+
+Error handling in get_plan_summary which is failing when you look at your plan details.
+Parameter handling issues in the create_workout_plan method.
+Duplicated and conflicting code in the plan creation UI section.
+Potential issues in the plan saving process.
+The fixes I've provided should address these problems. When implementing these changes:
+
+First update the get_plan_summary method in your ExerciseDatabase class to properly handle errors.
+Update the create_workout_plan method in your WorkoutGenerator class to properly handle the primary_sport and training_phase parameters.
+Fix the duplicated code in your main.py file's plan creation section.
+Update the save_generated_plan method in WorkoutPlanner to ensure all parameters are properly passed.
+After making these changes, your app should be able to create new plans without errors.
+
+can you rewrite each of these in place for me so that I can copy and paste the entire files in to my git
+
+I'll rewrite each of your files completely so you can copy and paste them directly into your git. I'll organize them by file name:
+
+1. exercise_utils.py
+python
 import sqlite3
 import json
-import datetime
-import logging
-from typing import Dict, List, Any, Tuple, Optional
+from datetime import datetime
 
-class WorkoutPlanner:
-    def __init__(self, db_connection=None, db_path='fitness.db'):
-        """
-        Initialize the workout planner with a database connection.
+class ExerciseDatabase:
+    def __init__(self, db_path):
+        """Initialize the database connection"""
+        self.conn = sqlite3.connect(db_path)
+        self.conn.row_factory = sqlite3.Row
+        self.cursor = self.conn.cursor()
+        self._initialize_tables()
         
-        Args:
-            db_connection: Optional existing database connection
-            db_path: Path to the database file if no connection is provided
-        """
-        # Set up logging
+    def _initialize_tables(self):
+        """Initialize all required database tables if they don't exist"""
+        # Original tables
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS exercises 
+                            (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                             title TEXT,
+                             description TEXT,
+                             body_part TEXT,
+                             exercise_type TEXT,
+                             equipment TEXT,
+                             level TEXT,
+                             instructions TEXT)''')
+        
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS fitness_plans 
+                            (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                             user_id INTEGER,
+                             name TEXT,
+                             goal TEXT,
+                             duration_weeks INTEGER,
+                             created_at TIMESTAMP,
+                             is_active INTEGER DEFAULT 1,
+                             FOREIGN KEY(user_id) REFERENCES users(id))''')
+        
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS plan_workouts 
+                            (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                             plan_id INTEGER,
+                             exercise_id INTEGER,
+                             week INTEGER,
+                             day INTEGER,
+                             target_sets INTEGER,
+                             target_reps INTEGER,
+                             FOREIGN KEY(plan_id) REFERENCES fitness_plans(id),
+                             FOREIGN KEY(exercise_id) REFERENCES exercises(id))''')
+        
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS workout_logs 
+                            (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                             workout_id INTEGER,
+                             completed_at TIMESTAMP,
+                             sets_completed INTEGER,
+                             reps_completed INTEGER,
+                             weight_kg REAL,
+                             FOREIGN KEY(workout_id) REFERENCES plan_workouts(id))''')
+        
+        # New tables for sports-specific workout planning
+        
+        # Sports profiles table
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS sports_profiles 
+                            (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                             sport TEXT UNIQUE NOT NULL,
+                             required_movements TEXT NOT NULL,
+                             energy_systems TEXT NOT NULL,
+                             primary_muscle_groups TEXT NOT NULL,
+                             injury_risk_areas TEXT,
+                             training_phase_focus TEXT)''')
+        
+        # User profiles with sports focus
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS user_profiles 
+                            (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                             user_id INTEGER UNIQUE NOT NULL,
+                             name TEXT,
+                             age INTEGER,
+                             experience_level TEXT,
+                             primary_sport TEXT,
+                             secondary_sports TEXT,
+                             goals TEXT,
+                             training_frequency INTEGER,
+                             session_duration INTEGER,
+                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                             FOREIGN KEY(user_id) REFERENCES users(id))''')
+        
+        # Progress tracking table
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS progress_tracking 
+                            (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                             user_id INTEGER NOT NULL,
+                             workout_date TIMESTAMP NOT NULL,
+                             workout_id INTEGER,
+                             exercises_completed TEXT NOT NULL,
+                             performance_metrics TEXT NOT NULL,
+                             notes TEXT,
+                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                             FOREIGN KEY(workout_id) REFERENCES plan_workouts(id),
+                             FOREIGN KEY(user_id) REFERENCES users(id))''')
+        
+        # Enhanced exercise attributes - safely add columns that might not exist
+        self._safe_add_column("exercises", "sports_focus", "TEXT")
+        self._safe_add_column("exercises", "primary_movement_pattern", "TEXT")
+        self._safe_add_column("exercises", "energy_system", "TEXT")
+        self._safe_add_column("exercises", "primary_benefit", "TEXT")
+        self._safe_add_column("exercises", "difficulty", "INTEGER")
+        
+        # Enhanced fitness plans
+        self._safe_add_column("fitness_plans", "primary_sport", "TEXT")
+        self._safe_add_column("fitness_plans", "training_phase", "TEXT")
+        
+        self.conn.commit()
+    
+    def _safe_add_column(self, table, column, column_type):
+        """Safely add a column to a table if it doesn't exist"""
+        try:
+            # Check if column exists
+            self.cursor.execute(f"PRAGMA table_info({table})")
+            columns = [info[1] for info in self.cursor.fetchall()]
+            
+            # Add column if it doesn't exist
+            if column not in columns:
+                self.cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
+        except sqlite3.Error as e:
+            print(f"Error adding column {column} to {table}: {e}")
+    
+    def get_exercises_by_goal(self, goal):
+        """Get exercises filtered by goal"""
+        self.cursor.execute('''SELECT * FROM exercises 
+                             WHERE exercise_type LIKE ?''', (f'%{goal}%',))
+        return self.cursor.fetchall()
+    
+    def get_active_plans(self, user_id):
+        """Get all active fitness plans for a user"""
+        self.cursor.execute('''SELECT * FROM fitness_plans 
+                             WHERE user_id = ? AND is_active = 1''', (user_id,))
+        return self.cursor.fetchall()
+    
+    def get_plan_summary(self, plan_id):
+        """Get summary statistics for a fitness plan"""
+        try:
+            self.cursor.execute('''
+                SELECT 
+                    pw.week,
+                    COUNT(DISTINCT pw.id) as total_exercises,
+                    COUNT(DISTINCT CASE WHEN wl.id IS NOT NULL THEN wl.id END) as exercises_completed,
+                    IFNULL(AVG(wl.weight_kg), 0) as avg_weight,
+                    COUNT(DISTINCT pw.day) as days_worked
+                FROM plan_workouts pw
+                LEFT JOIN workout_logs wl ON pw.id = wl.workout_id
+                WHERE pw.plan_id = ?
+                GROUP BY pw.week
+                ORDER BY pw.week
+            ''', (plan_id,))
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Error in get_plan_summary for plan_id {plan_id}: {e}")
+            return []
+    
+    def get_plan_workouts(self, plan_id, week, day):
+        """Get workouts for a specific plan, week, and day"""
+        try:
+            if day is not None:  # Explicit check for None
+                self.cursor.execute('''
+                    SELECT pw.*, e.*
+                    FROM plan_workouts pw
+                    JOIN exercises e ON pw.exercise_id = e.id
+                    WHERE pw.plan_id = ? AND pw.week = ? AND pw.day = ?
+                ''', (plan_id, week, day))
+            else:
+                self.cursor.execute('''
+                    SELECT pw.*, e.*
+                    FROM plan_workouts pw
+                    JOIN exercises e ON pw.exercise_id = e.id
+                    WHERE pw.plan_id = ? AND pw.week = ?
+                ''', (plan_id, week))
+            
+            results = self.cursor.fetchall()
+            # Return empty list if no workouts found
+            return [dict(row) for row in results] if results else []
+        except sqlite3.Error as e:
+            print(f"Error fetching workouts for plan {plan_id}, week {week}, day {day}: {e}")
+            # Return empty list on error
+            return []
+    
+    def update_plan_goal(self, plan_id, new_goal):
+        """Update the goal of a fitness plan"""
+        self.cursor.execute('''UPDATE fitness_plans SET goal = ? WHERE id = ?''',
+                         (new_goal, plan_id))
+        self.conn.commit()
+    
+    def make_plan_inactive(self, plan_id):
+        """Mark a fitness plan as inactive"""
+        self.cursor.execute('''UPDATE fitness_plans SET is_active = 0 WHERE id = ?''',
+                         (plan_id,))
+        self.conn.commit()
+    
+    def log_workout(self, workout_id, sets, reps, weight_kg):
+        """Log a completed workout"""
+        self.cursor.execute(
+            '''INSERT INTO workout_logs 
+            (workout_id, completed_at, sets_completed, reps_completed, weight_kg)
+            VALUES (?, ?, ?, ?, ?)''',
+            (workout_id, datetime.now(), sets, reps, weight_kg))
+        self.conn.commit()
+    
+    # New methods for sports-specific functionality
+    
+    def get_sports_list(self):
+        """Get list of all available sports"""
+        self.cursor.execute("SELECT sport FROM sports_profiles ORDER BY sport")
+        return [row['sport'] for row in self.cursor.fetchall()]
+    
+    def get_sports_profile(self, sport):
+        """Get a sport profile by name"""
+        self.cursor.execute("SELECT * FROM sports_profiles WHERE sport = ?", (sport,))
+        profile = self.cursor.fetchone()
+        
+        if profile:
+            result = dict(profile)
+            # Parse JSON fields
+            result['required_movements'] = json.loads(result['required_movements'])
+            result['energy_systems'] = json.loads(result['energy_systems'])
+            result['primary_muscle_groups'] = json.loads(result['primary_muscle_groups'])
+            result['injury_risk_areas'] = json.loads(result['injury_risk_areas'])
+            result['training_phase_focus'] = json.loads(result['training_phase_focus'])
+            return result
+        return None
+    
+    def create_sports_profile(self, sport, required_movements, energy_systems, 
+                             primary_muscle_groups, injury_risk_areas, training_phase_focus):
+        """Create a new sports profile"""
+        try:
+            self.cursor.execute("""
+            INSERT INTO sports_profiles 
+            (sport, required_movements, energy_systems, primary_muscle_groups, 
+            injury_risk_areas, training_phase_focus)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                sport,
+                json.dumps(required_movements),
+                json.dumps(energy_systems),
+                json.dumps(primary_muscle_groups),
+                json.dumps(injury_risk_areas),
+                json.dumps(training_phase_focus)
+            ))
+            self.conn.commit()
+            return self.cursor.lastrowid
+        except sqlite3.Error as e:
+            print(f"Error creating sports profile: {e}")
+            return None
+    
+    def get_user_profile(self, user_id):
+        """Get a user's sports profile"""
+        self.cursor.execute("SELECT * FROM user_profiles WHERE user_id = ?", (user_id,))
+        profile = self.cursor.fetchone()
+        
+        if profile:
+            result = dict(profile)
+            # Parse JSON fields
+            result['secondary_sports'] = json.loads(result['secondary_sports'])
+            result['goals'] = json.loads(result['goals'])
+            return result
+        return None
+    
+    def create_user_profile(self, user_id, name, age, experience_level, primary_sport,
+                           secondary_sports, goals, training_frequency, session_duration):
+        """Create a user profile with sports preferences"""
+        try:
+            self.cursor.execute("""
+            INSERT INTO user_profiles 
+            (user_id, name, age, experience_level, primary_sport, secondary_sports, goals, 
+            training_frequency, session_duration)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                user_id, name, age, experience_level, primary_sport, 
+                json.dumps(secondary_sports), json.dumps(goals),
+                training_frequency, session_duration
+            ))
+            self.conn.commit()
+            return self.cursor.lastrowid
+        except sqlite3.Error as e:
+            print(f"Error creating user profile: {e}")
+            # If duplicate, update instead
+            try:
+                self.cursor.execute("""
+                UPDATE user_profiles SET
+                name = ?, age = ?, experience_level = ?, primary_sport = ?,
+                secondary_sports = ?, goals = ?, training_frequency = ?, session_duration = ?
+                WHERE user_id = ?
+                """, (
+                    name, age, experience_level, primary_sport,
+                    json.dumps(secondary_sports), json.dumps(goals),
+                    training_frequency, session_duration, user_id
+                ))
+                self.conn.commit()
+                return user_id
+            except sqlite3.Error as e2:
+                print(f"Error updating user profile: {e2}")
+                return None
+    
+    def log_workout_progress(self, user_id, workout_id, exercises_completed, 
+                            performance_metrics, notes=None):
+        """Log detailed workout progress"""
+        try:
+            workout_date = datetime.now()
+            
+            self.cursor.execute("""
+            INSERT INTO progress_tracking 
+            (user_id, workout_date, workout_id, exercises_completed, performance_metrics, notes)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                user_id,
+                workout_date.isoformat(),
+                workout_id,
+                json.dumps(exercises_completed),
+                json.dumps(performance_metrics),
+                notes
+            ))
+            self.conn.commit()
+            return self.cursor.lastrowid
+        except sqlite3.Error as e:
+            print(f"Error logging workout progress: {e}")
+            return None
+    
+    def get_progress_history(self, user_id, start_date=None, end_date=None):
+        """Get workout progress history for a user"""
+        query = "SELECT * FROM progress_tracking WHERE user_id = ?"
+        params = [user_id]
+        
+        if start_date:
+            query += " AND workout_date >= ?"
+            params.append(start_date.isoformat())
+            
+        if end_date:
+            query += " AND workout_date <= ?"
+            params.append(end_date.isoformat())
+            
+        query += " ORDER BY workout_date DESC"
+        
+        self.cursor.execute(query, params)
+        history = []
+        
+        for row in self.cursor.fetchall():
+            entry = dict(row)
+            entry['exercises_completed'] = json.loads(entry['exercises_completed'])
+            entry['performance_metrics'] = json.loads(entry['performance_metrics'])
+            history.append(entry)
+            
+        return history
+
+    def add_exercise(self, title, body_part, exercise_type, description, equipment, level, 
+                    instructions, sports_focus=None, primary_movement_pattern=None,
+                    energy_system=None, difficulty=3, primary_benefit=None):
+        """Add a new exercise with sports-specific attributes"""
+        try:
+            sports_focus_json = json.dumps(sports_focus) if sports_focus else None
+            
+            self.cursor.execute("""
+            INSERT INTO exercises 
+            (title, body_part, exercise_type, description, equipment, level, instructions,
+             sports_focus, primary_movement_pattern, energy_system, difficulty, primary_benefit)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                title, body_part, exercise_type, description, equipment, level, instructions,
+                sports_focus_json, primary_movement_pattern, energy_system, difficulty, primary_benefit
+            ))
+            self.conn.commit()
+            return self.cursor.lastrowid
+        except sqlite3.Error as e:
+            print(f"Error adding exercise: {e}")
+            return None
+2. WorkoutGenerator.py
+python
+import logging
+from typing import Dict, List, Tuple, Any, Optional, Union
+from datetime import datetime
+
+class WorkoutGenerator:
+    def __init__(self, db, planner, engine):
+        """Initialize the workout generator with database and engine dependencies."""
+        self.db = db
+        self.planner = planner
+        self.engine = engine
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
-        
-        if db_connection:
-            self.db = db_connection
-        else:
-            self.db = sqlite3.connect(db_path)
-        
-        self.db.row_factory = sqlite3.Row
-        self.cursor = self.db.cursor()
-                
-    def create_workout_plan(self, user_id: int, plan_name: str, goal: str, 
-                          duration_weeks: int, primary_sport: str = None,
-                          training_phase: str = "General") -> int:
+    
+    def create_workout_plan(self, user_id: int, plan_name: str, plan_goal: str,
+                          duration_weeks: int, workouts_per_week: int, 
+                          equipment_access: List[str], limitations: List[str],
+                          experience_level: str, preferred_cardio: List[str] = None,
+                          specific_focus: List[str] = None, primary_sport: str = None,
+                          training_phase: str = None, time_per_workout: int = 45) -> Tuple[bool, Union[int, str]]:
         """
-        Create a new workout plan for a user.
+        Create a personalized workout plan based on user input.
         
         Args:
             user_id: User ID
             plan_name: Name of the plan
-            goal: Primary fitness goal
+            plan_goal: Primary fitness goal
             duration_weeks: Duration in weeks
-            primary_sport: Optional sport focus
-            training_phase: Training phase (Off-Season, In-Season, etc.)
-            
-        Returns:
-            ID of the created plan
-        """
-        created_at = datetime.datetime.now()
-        
-        try:
-            self.cursor.execute('''
-            INSERT INTO fitness_plans 
-            (user_id, name, goal, duration_weeks, created_at, primary_sport, training_phase)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (user_id, plan_name, goal, duration_weeks, created_at, primary_sport, training_phase))
-            
-            self.db.commit()
-            plan_id = self.cursor.lastrowid
-            return plan_id
-        except sqlite3.Error as e:
-            logging.error(f"Error creating workout plan: {e}")
-            self.db.rollback()
-            raise
-    
-    def add_workout_to_plan(self, plan_id: int, exercise_id: int, week: int, 
-                           day: int, target_sets: int, target_reps: int) -> int:
-        """
-        Add an exercise to a workout plan.
-        
-        Args:
-            plan_id: Plan ID
-            exercise_id: Exercise ID
-            week: Week number
-            day: Day of the week (1-7)
-            target_sets: Target number of sets
-            target_reps: Target number of reps or duration
-            
-        Returns:
-            ID of the created workout
-        """
-        try:
-            self.cursor.execute('''
-            INSERT INTO plan_workouts 
-            (plan_id, exercise_id, week, day, target_sets, target_reps)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ''', (plan_id, exercise_id, week, day, target_sets, target_reps))
-            
-            self.db.commit()
-            workout_id = self.cursor.lastrowid
-            return workout_id
-        except sqlite3.Error as e:
-            logging.error(f"Error adding workout to plan: {e}")
-            self.db.rollback()
-            raise
-    
-    def generate_intelligent_plan(self, user_profile: Dict, 
-                               sports_profile: Dict = None,
-                               duration_weeks: int = 8,
-                               current_phase: str = "General") -> Dict:
-        """
-        Generate an intelligent workout plan based on user profile and sport requirements.
-        
-        Args:
-            user_profile: User profile data
-            sports_profile: Sports requirements data
-            duration_weeks: Duration in weeks
-            current_phase: Training phase
-            
-        Returns:
-            Complete workout plan structure
-        """
-        # Extract user data
-        user_id = user_profile['user_id']
-        primary_sport = user_profile.get('primary_sport')
-        experience_level = user_profile.get('experience_level', 'Intermediate')
-        training_frequency = user_profile.get('training_frequency', 3)
-        session_duration = user_profile.get('session_duration', 45)
-        goals = user_profile.get('goals', [])
-        
-        # Create generic sports profile if not provided
-        if not sports_profile and primary_sport:
-            sports_profile = self._create_generic_profile(primary_sport)
-        elif not sports_profile:
-            # Create a balanced profile for general fitness
-            sports_profile = {
-                "required_movements": ["Squat", "Hinge", "Push", "Pull", "Carry"],
-                "energy_systems": ["Aerobic", "Anaerobic"],
-                "primary_muscle_groups": ["Quadriceps", "Hamstrings", "Chest", "Back", "Shoulders"],
-                "injury_risk_areas": [],
-                "training_phase_focus": {
-                    "General": ["Strength", "Hypertrophy", "Conditioning"]
-                }
-            }
-        
-        # Determine the training split based on frequency
-        training_split = self._determine_training_split(
-            training_frequency, 
-            sports_profile,
-            experience_level
-        )
-        
-        # Get the focus areas based on the current training phase
-        phase_focus = sports_profile.get('training_phase_focus', {}).get(current_phase, [])
-        if not phase_focus:
-            phase_focus = ["General Strength", "Conditioning", "Core"]
-            
-        # Create the plan structure
-        start_date = datetime.datetime.now()
-        end_date = start_date + datetime.timedelta(weeks=duration_weeks)
-        
-        workout_plan = {
-            "user_id": user_id,
-            "primary_sport": primary_sport,
-            "training_split": training_split,
-            "focus_areas": phase_focus,
-            "weeks": []
-        }
-        
-        # Generate workout routines for each week
-        for week in range(1, duration_weeks + 1):
-            # Adjust intensity and volume based on week number (linear periodization)
-            intensity_factor = min(0.7 + (week * 0.05), 0.95)  # Increases each week
-            volume_factor = 1.0 - (week * 0.02) if week > 3 else 1.0  # Decreases after week 3
-            
-            week_plan = {
-                "week_number": week,
-                "intensity": round(intensity_factor * 100),  # As percentage
-                "volume": round(volume_factor * 100),  # As percentage
-                "workouts": []
-            }
-            
-            # Generate individual workouts for each training day
-            for day_config in training_split["days"]:
-                day_number = day_config["day"]
-                focus = day_config["focus"]
-                
-                # Get exercises for this workout
-                workout_exercises = self._select_exercises_for_workout(
-                    focus,
-                    primary_sport,
-                    experience_level,
-                    intensity_factor,
-                    volume_factor,
-                    session_duration
-                )
-                
-                week_plan["workouts"].append({
-                    "day": day_number,
-                    "focus": focus,
-                    "exercises": workout_exercises
-                })
-                
-            workout_plan["weeks"].append(week_plan)
-            
-        return workout_plan
-        
-    def _determine_training_split(self, frequency: int, sports_profile: Dict, 
-                               experience_level: str) -> Dict:
-        """
-        Determine the optimal training split based on training frequency and sport.
-        
-        Args:
-            frequency: Workouts per week
-            sports_profile: Sports requirements data
+            workouts_per_week: Number of workouts per week
+            equipment_access: Available equipment
+            limitations: Physical limitations
             experience_level: User experience level
+            preferred_cardio: Preferred cardio methods
+            specific_focus: Areas to focus on
+            primary_sport: Primary sport focus
+            training_phase: Training phase
+            time_per_workout: Minutes per workout
             
         Returns:
-            Training split configuration
+            Tuple of (success, result) where result is plan_id if successful or error message
         """
-        # Default fallback for any missing data
-        if not sports_profile or not isinstance(sports_profile, dict):
-            sports_profile = {
-                "primary_muscle_groups": ["Full Body"]
-            }
-            
-        if frequency <= 2:
-            # For low frequency, use full-body workouts
-            return {
-                "type": "Full Body",
-                "days": [{"day": i+1, "focus": "Full Body"} for i in range(frequency)]
-            }
-        elif frequency == 3:
-            # 3-day split for most sports
-            primary_muscles = sports_profile.get('primary_muscle_groups', [])
-            if "Lower Body" in primary_muscles and len(primary_muscles) > 2:
-                # Sport emphasizes lower body, like running or soccer
-                return {
-                    "type": "Push/Pull/Legs",
-                    "days": [
-                        {"day": 1, "focus": "Lower Body/Posterior Chain"},
-                        {"day": 2, "focus": "Upper Body Push/Core"},
-                        {"day": 3, "focus": "Lower Body/Upper Body Pull"}
-                    ]
-                }
-            else:
-                return {
-                    "type": "Upper/Lower",
-                    "days": [
-                        {"day": 1, "focus": "Upper Body"},
-                        {"day": 2, "focus": "Lower Body"},
-                        {"day": 3, "focus": "Full Body/Functional"}
-                    ]
-                }
-        elif frequency == 4:
-            # 4-day split
-            return {
-                "type": "Upper/Lower",
-                "days": [
-                    {"day": 1, "focus": "Upper Body Push/Core"},
-                    {"day": 2, "focus": "Lower Body/Posterior Chain"},
-                    {"day": 3, "focus": "Upper Body Pull/Core"},
-                    {"day": 4, "focus": "Lower Body/Functional"}
-                ]
-            }
-        else:
-            # 5+ day split
-            if experience_level == "Advanced":
-                # Body part split for advanced
-                return {
-                    "type": "Body Part Split",
-                    "days": [
-                        {"day": 1, "focus": "Chest/Triceps"},
-                        {"day": 2, "focus": "Back/Biceps"}, 
-                        {"day": 3, "focus": "Legs/Core"},
-                        {"day": 4, "focus": "Shoulders/Arms"},
-                        {"day": 5, "focus": "Sport-Specific/Conditioning"}
-                    ] + ([{"day": 6, "focus": "Mobility/Recovery"}] if frequency >= 6 else [])
-                }
-            else:
-                # Push/Pull/Legs for intermediate
-                return {
-                    "type": "Push/Pull/Legs",
-                    "days": [
-                        {"day": 1, "focus": "Push"},
-                        {"day": 2, "focus": "Pull"}, 
-                        {"day": 3, "focus": "Legs"},
-                        {"day": 4, "focus": "Push + Sport-Specific"},
-                        {"day": 5, "focus": "Pull + Sport-Specific"}
-                    ] + ([{"day": 6, "focus": "Legs/Functional"}] if frequency >= 6 else [])
-                }
-    
-    def _select_exercises_for_workout(self, focus: str, sport: str, experience_level: str,
-                                   intensity_factor: float, volume_factor: float,
-                                   session_duration: int) -> List[Dict]:
-        """
-        Select exercises for a workout based on focus and other factors.
-        
-        Args:
-            focus: Workout focus (e.g., "Upper Body")
-            sport: Primary sport
-            experience_level: User experience level
-            intensity_factor: Intensity adjustment factor
-            volume_factor: Volume adjustment factor
-            session_duration: Workout duration in minutes
-            
-        Returns:
-            List of exercises with training parameters
-        """
-        # Calculate number of exercises based on session duration and experience
-        exercise_count = self._calculate_exercise_counts(experience_level, session_duration, focus)
-        
-        # Focus keywords for query
-        focus_keywords = focus.lower().split('/')
-        
-        # Select main/compound exercises
-        main_exercises = self._select_main_exercises(
-            focus_keywords, 
-            sport,
-            exercise_count["main"],
-            experience_level,
-            intensity_factor
-        )
-        
-        # Select accessory/isolation exercises
-        accessory_exercises = self._select_accessory_exercises(
-            focus_keywords,
-            sport,
-            exercise_count["accessory"],
-            volume_factor
-        )
-        
-        # Select sport-specific exercises if applicable
-        sport_specific_exercises = []
-        if sport and exercise_count["sport_specific"] > 0:
-            sport_specific_exercises = self._select_sport_specific_exercises(
-                sport,
-                exercise_count["sport_specific"]
-            )
-        
-        # Combine all exercises
-        all_exercises = main_exercises + accessory_exercises + sport_specific_exercises
-        
-        return all_exercises
-    
-    def _calculate_exercise_counts(self, experience_level: str, session_duration: int,
-                               focus: str) -> Dict[str, int]:
-        """Calculate optimal exercise counts based on user parameters."""
-        # Base counts by experience level
-        base_counts = {
-            "Beginner": {"main": 2, "accessory": 3, "sport_specific": 1},
-            "Intermediate": {"main": 3, "accessory": 4, "sport_specific": 2},
-            "Advanced": {"main": 4, "accessory": 5, "sport_specific": 3}
-        }.get(experience_level, {"main": 2, "accessory": 3, "sport_specific": 1})
-        
-        # Adjust for session duration (baseline is 60 minutes)
-        duration_factor = session_duration / 60
-        for key in base_counts:
-            base_counts[key] = round(base_counts[key] * duration_factor)
-            
-        # Adjust for focus type
-        if "Full Body" in focus:
-            base_counts["main"] = max(2, base_counts["main"] - 1)
-            base_counts["accessory"] = max(2, base_counts["accessory"] - 1)
-            
-        return base_counts
-    
-    def _select_main_exercises(self, focus_keywords: List[str], sport: str, 
-                           count: int, experience_level: str, 
-                           intensity_factor: float) -> List[Dict]:
-        """Select main/compound exercises for the workout."""
-        # Difficulty based on experience
-        difficulty_map = {
-            "Beginner": [1, 2, 3],
-            "Intermediate": [2, 3, 4],
-            "Advanced": [3, 4, 5]
-        }
-        difficulty_range = difficulty_map.get(experience_level, [1, 2, 3])
-        
-        # Build query for main exercises
-        query_parts = []
-        params = []
-        
-        # Add focus-based criteria
-        focus_conditions = []
-        for keyword in focus_keywords:
-            focus_conditions.append("body_part LIKE ?")
-            params.append(f"%{keyword}%")
-        
-        query_parts.append(f"({' OR '.join(focus_conditions)})")
-        
-        # Add exercise type criteria
-        query_parts.append("exercise_type IN ('Strength', 'Compound', 'Power')")
-        
-        # Add sport-specific criteria if applicable
-        if sport:
-            query_parts.append("(sports_focus LIKE ? OR sports_focus IS NULL)")
-            params.append(f"%{sport}%")
-        
-        # Add difficulty criteria
-        difficulty_placeholders = ', '.join(['?' for _ in difficulty_range])
-        query_parts.append(f"(difficulty IS NULL OR difficulty IN ({difficulty_placeholders}))")
-        params.extend(difficulty_range)
-        
-        # Complete the query
-        query = f"""
-        SELECT * FROM exercises 
-        WHERE {' AND '.join(query_parts)}
-        ORDER BY RANDOM()
-        LIMIT ?
-        """
-        params.append(count)
-        
-        # Execute query
         try:
-            self.cursor.execute(query, params)
-            exercises = [dict(row) for row in self.cursor.fetchall()]
+            # Extract primary sport from specific focus or deduce it from plan goal if not provided
+            if primary_sport is None:
+                primary_sport = self._determine_primary_sport(specific_focus, plan_goal)
             
-            # Fill in missing slots if needed
-            if len(exercises) < count:
-                missing = count - len(exercises)
-                # Use a more general query to find additional exercises
-                self._add_fallback_exercises(exercises, "Compound", missing)
+            # Determine training phase if not provided
+            if training_phase is None:
+                training_phase = self._determine_training_phase(plan_goal)
             
-            # Calculate sets and reps based on experience level and intensity
-            for exercise in exercises:
-                # Parse JSON fields if needed
-                if exercise.get('sports_focus') and isinstance(exercise['sports_focus'], str):
-                    try:
-                        exercise['sports_focus'] = json.loads(exercise['sports_focus'])
-                    except:
-                        exercise['sports_focus'] = []
-                
-                # Calculate sets and reps
-                exercise_data = self._calculate_sets_reps(
-                    exercise.get('exercise_type', 'Compound'),
-                    experience_level,
-                    intensity_factor,
-                    sport and exercise.get('sports_focus') and sport in exercise.get('sports_focus', [])
-                )
-                
-                exercise.update(exercise_data)
-            
-            return exercises
-        except sqlite3.Error as e:
-            logging.error(f"Error selecting main exercises: {e}")
-            return []
-    
-    def _select_accessory_exercises(self, focus_keywords: List[str], sport: str, 
-                                 count: int, volume_factor: float) -> List[Dict]:
-        """Select accessory/isolation exercises for the workout."""
-        # Build query for accessory exercises
-        query_parts = []
-        params = []
-        
-        # Add focus-based criteria
-        focus_conditions = []
-        for keyword in focus_keywords:
-            focus_conditions.append("body_part LIKE ?")
-            params.append(f"%{keyword}%")
-        
-        query_parts.append(f"({' OR '.join(focus_conditions)})")
-        
-        # Add exercise type criteria
-        query_parts.append("exercise_type IN ('Isolation', 'Accessory', 'Mobility')")
-        
-        # Complete the query
-        query = f"""
-        SELECT * FROM exercises 
-        WHERE {' AND '.join(query_parts)}
-        ORDER BY RANDOM()
-        LIMIT ?
-        """
-        params.append(count)
-        
-        # Execute query
-        try:
-            self.cursor.execute(query, params)
-            exercises = [dict(row) for row in self.cursor.fetchall()]
-            
-            # Fill in missing slots if needed
-            if len(exercises) < count:
-                missing = count - len(exercises)
-                # Use a more general query to find additional exercises
-                self._add_fallback_exercises(exercises, "Isolation", missing)
-            
-            # Format accessory exercises
-            for exercise in exercises:
-                # Parse JSON fields if needed
-                if exercise.get('sports_focus') and isinstance(exercise['sports_focus'], str):
-                    try:
-                        exercise['sports_focus'] = json.loads(exercise['sports_focus'])
-                    except:
-                        exercise['sports_focus'] = []
-                
-                # Default accessory exercise prescription
-                exercise.update({
-                    "target_sets": max(2, round(3 * volume_factor)),
-                    "target_reps": "12-15",
-                    "rest": "30-60 seconds",
-                    "tempo": "2-0-2", # Concentric-pause-eccentric
-                    "type": "Accessory"
-                })
-            
-            return exercises
-        except sqlite3.Error as e:
-            logging.error(f"Error selecting accessory exercises: {e}")
-            return []
-    
-    def _select_sport_specific_exercises(self, sport: str, count: int) -> List[Dict]:
-        """Select sport-specific exercises."""
-        if not sport or count == 0:
-            return []
-            
-        # Query for sport-specific exercises
-        try:
-            query = """
-            SELECT * FROM exercises 
-            WHERE sports_focus LIKE ?
-            ORDER BY RANDOM()
-            LIMIT ?
-            """
-            
-            params = [f"%{sport}%", count]
-            
-            self.cursor.execute(query, params)
-            exercises = [dict(row) for row in self.cursor.fetchall()]
-            
-            # Format sport-specific exercises
-            for exercise in exercises:
-                # Parse JSON fields if needed
-                if exercise.get('sports_focus') and isinstance(exercise['sports_focus'], str):
-                    try:
-                        exercise['sports_focus'] = json.loads(exercise['sports_focus'])
-                    except:
-                        exercise['sports_focus'] = []
-                
-                # Default sport-specific exercise prescription
-                exercise.update({
-                    "target_sets": 3,
-                    "target_reps": "8-12",
-                    "rest": "60-90 seconds",
-                    "notes": f"Focus on sport-specific movement patterns for {sport}",
-                    "type": "Sport-Specific"
-                })
-            
-            return exercises
-        except sqlite3.Error as e:
-            logging.error(f"Error selecting sport-specific exercises: {e}")
-            return []
-    
-    def _add_fallback_exercises(self, exercises: List[Dict], exercise_type: str, count: int):
-        """Add general exercises of a given type to fill gaps."""
-        if count <= 0:
-            return
-            
-        # Get IDs of already selected exercises
-        existing_ids = [ex['id'] for ex in exercises if 'id' in ex]
-        id_exclusion = f"AND id NOT IN ({','.join(['?'] * len(existing_ids))})" if existing_ids else ""
-        
-        # Query for additional exercises
-        try:
-            query = f"""
-            SELECT * FROM exercises 
-            WHERE exercise_type LIKE ? 
-            {id_exclusion}
-            ORDER BY RANDOM()
-            LIMIT ?
-            """
-            
-            params = [f"%{exercise_type}%"]
-            if existing_ids:
-                params.extend(existing_ids)
-            params.append(count)
-            
-            self.cursor.execute(query, params)
-            fallback_exercises = [dict(row) for row in self.cursor.fetchall()]
-            
-            exercises.extend(fallback_exercises)
-        except sqlite3.Error as e:
-            logging.error(f"Error adding fallback exercises: {e}")
-    
-    def _calculate_sets_reps(self, exercise_type: str, experience_level: str, 
-                         intensity_factor: float, is_sport_specific: bool) -> Dict:
-        """
-        Calculate appropriate sets and reps based on exercise type and user level.
-        
-        Args:
-            exercise_type: Type of exercise
-            experience_level: User experience level
-            intensity_factor: Intensity adjustment (0.0-1.0)
-            is_sport_specific: Whether exercise matches sport requirements
-            
-        Returns:
-            Sets, reps, and other training parameters
-        """
-        base_sets = {
-            "Beginner": 3,
-            "Intermediate": 4,
-            "Advanced": 5
-        }.get(experience_level, 3)
-        
-        # Adjust sets based on intensity factor
-        adjusted_sets = round(base_sets * (0.8 + (intensity_factor * 0.4)))
-        
-        # Set rep ranges based on exercise type
-        if exercise_type == 'Power':
-            reps = "3-5"
-            rest = "2-3 minutes"
-            tempo = "X-0-2"  # X = explosive
-            intensity = f"{round(85 + (intensity_factor * 10))}%"
-        elif exercise_type == 'Strength':
-            reps = "5-8"
-            rest = "1.5-2 minutes"
-            tempo = "2-0-2"
-            intensity = f"{round(80 + (intensity_factor * 15))}%"
-        elif exercise_type == 'Compound':
-            reps = "6-10"
-            rest = "1-2 minutes"
-            tempo = "2-0-2"
-            intensity = f"{round(75 + (intensity_factor * 15))}%"
-        else:  # Accessory or other types
-            reps = "8-12"
-            rest = "60-90 seconds"
-            tempo = "2-1-2"
-            intensity = f"{round(70 + (intensity_factor * 10))}%"
-            
-        # Add emphasis for sport-specific exercises
-        notes = "Focus on explosive power and control" if is_sport_specific else ""
-            
-        return {
-            "target_sets": adjusted_sets,
-            "target_reps": reps,
-            "rest": rest,
-            "tempo": tempo,
-            "intensity": intensity,
-            "notes": notes,
-            "type": "Main"
-        }
-    
-    def _create_generic_profile(self, sport: str) -> Dict:
-        """Create a generic sports profile if specific one doesn't exist."""
-        # Set up default values based on sport category
-        sport_lower = sport.lower()
-        
-        if any(x in sport_lower for x in ["running", "cycling", "swimming", "triathlon", "endurance"]):
-            # Endurance sports
-            profile = {
-                "required_movements": ["Squat", "Lunge", "Hinge", "Core Stability"],
-                "energy_systems": ["Aerobic", "Lactate Threshold", "VO2 Max"],
-                "primary_muscle_groups": ["Quadriceps", "Hamstrings", "Calves", "Core", "Glutes"],
-                "injury_risk_areas": ["Knees", "Achilles", "Plantar Fascia", "Hip Flexors"],
-                "training_phase_focus": {
-                    "Off-Season": ["Strength", "Mobility", "Work Capacity"],
-                    "Pre-Season": ["Power Endurance", "Sport-Specific Endurance", "Technical"],
-                    "In-Season": ["Maintenance", "Recovery", "Technical"],
-                    "Post-Season": ["Recovery", "Mobility", "Imbalance Correction"]
-                }
-            }
-        elif any(x in sport_lower for x in ["football", "basketball", "soccer", "hockey", "lacrosse", "rugby"]):
-            # Team field/court sports
-            profile = {
-                "required_movements": ["Sprint", "Jump", "Deceleration", "Change of Direction", "Rotational Power"],
-                "energy_systems": ["Anaerobic", "Aerobic Power", "Phosphagen"],
-                "primary_muscle_groups": ["Quadriceps", "Hamstrings", "Glutes", "Core", "Shoulders"],
-                "injury_risk_areas": ["ACL", "Ankles", "Shoulders", "Lower Back"],
-                "training_phase_focus": {
-                    "Off-Season": ["Strength", "Power", "Work Capacity"],
-                    "Pre-Season": ["Power", "Speed", "Game-Specific Conditioning"],
-                    "In-Season": ["Power Maintenance", "Recovery", "Injury Prevention"],
-                    "Post-Season": ["Recovery", "Imbalance Correction", "Mobility"]
-                }
-            }
-        elif any(x in sport_lower for x in ["tennis", "golf", "baseball", "cricket", "throwing"]):
-            # Rotational/striking sports
-            profile = {
-                "required_movements": ["Rotation", "Anti-Rotation", "Hinge", "Single-Leg Stability", "Shoulder Stability"],
-                "energy_systems": ["Phosphagen", "Anaerobic", "Aerobic"],
-                "primary_muscle_groups": ["Core", "Obliques", "Shoulders", "Upper Back", "Forearms"],
-                "injury_risk_areas": ["Shoulders", "Elbows", "Lower Back", "Obliques"],
-                "training_phase_focus": {
-                    "Off-Season": ["Strength", "Mobility", "Movement Pattern Correction"],
-                    "Pre-Season": ["Power", "Rotational Power", "Sport-Specific Conditioning"],
-                    "In-Season": ["Power Maintenance", "Recovery", "Injury Prevention"],
-                    "Post-Season": ["Recovery", "Mobility", "Imbalance Correction"]
-                }
-            }
-        elif any(x in sport_lower for x in ["weightlifting", "powerlifting", "bodybuilding", "strength"]):
-            # Strength sports
-            profile = {
-                "required_movements": ["Squat", "Deadlift", "Bench Press", "Overhead Press"],
-                "energy_systems": ["Phosphagen", "Anaerobic"],
-                "primary_muscle_groups": ["Quadriceps", "Hamstrings", "Chest", "Back", "Shoulders"],
-                "injury_risk_areas": ["Lower Back", "Shoulders", "Knees", "Elbows"],
-                "training_phase_focus": {
-                    "Off-Season": ["Hypertrophy", "Work Capacity", "Technique"],
-                    "Pre-Season": ["Strength", "Power", "Competition-Specific"],
-                    "In-Season": ["Peak Strength", "Technical", "Maintenance"],
-                    "Post-Season": ["Recovery", "Hypertrophy", "Weakness Correction"]
-                }
-            }
-        else:
-            # General athletic profile
-            profile = {
-                "required_movements": ["Squat", "Hinge", "Push", "Pull", "Carry", "Rotation"],
-                "energy_systems": ["Aerobic", "Anaerobic", "Phosphagen"],
-                "primary_muscle_groups": ["Quadriceps", "Hamstrings", "Chest", "Back", "Shoulders", "Core"],
-                "injury_risk_areas": ["Lower Back", "Shoulders", "Knees"],
-                "training_phase_focus": {
-                    "Off-Season": ["Strength", "Hypertrophy", "Work Capacity"],
-                    "Pre-Season": ["Power", "Speed", "Sport-Specific"],
-                    "In-Season": ["Maintenance", "Recovery", "Injury Prevention"],
-                    "Post-Season": ["Recovery", "Mobility", "Weakness Correction"],
-                    "General": ["Strength", "Hypertrophy", "Conditioning"]
-                }
-            }
-            
-        return profile
-    
-    def save_generated_plan(self, plan_data: Dict) -> int:
-        """Save a generated workout plan to the database."""
-        try:
-            # Create the plan record
-            user_id = plan_data["user_id"]
-            plan_name = plan_data.get("plan_name", "Intelligent Workout Plan")
-            goals = ", ".join(plan_data.get("focus_areas", ["General Fitness"]))
-            duration_weeks = len(plan_data["weeks"])
-            primary_sport = plan_data.get("primary_sport")
-            
-            # Create the plan
-            plan_id = self.create_workout_plan(
+            # Create or update user profile
+            self._ensure_user_profile(
                 user_id,
-                plan_name,
-                goals,
-                duration_weeks,
-                primary_sport
+                experience_level,
+                primary_sport,
+                workouts_per_week,
+                time_per_workout,
+                plan_goal,
+                specific_focus
             )
             
-            # Add exercises to the plan
-            for week in plan_data["weeks"]:
-                week_number = week["week_number"]
-                
-                for workout in week["workouts"]:
-                    day_number = workout["day"]
-                    
-                    for exercise in workout["exercises"]:
-                        exercise_id = exercise["id"]
-                        target_sets = exercise.get("target_sets", 3)
-                        target_reps = exercise.get("target_reps", "8-12")
-                        
-                        # Convert string reps to a number for storage if needed
-                        if isinstance(target_reps, str) and "-" in target_reps:
-                            # Use the average value
-                            try:
-                                low, high = target_reps.split("-")
-                                target_reps = (int(low) + int(high)) // 2
-                            except:
-                                target_reps = 10  # Default
-                        
-                        # Add the workout to the plan
-                        self.add_workout_to_plan(
-                            plan_id,
-                            exercise_id,
-                            week_number,
-                            day_number,
-                            target_sets,
-                            target_reps
-                        )
+            # Get or create a sports profile
+            sports_profile = self._get_sports_profile(primary_sport)
             
-            return plan_id
-        except Exception as e:
-            logging.error(f"Error saving generated plan: {e}")
-            return None
+            # Get user profile for plan generation
+            user_profile = self.db.get_user_profile(user_id)
+            
+            if not user_profile:
+                # Create a minimal user profile from parameters
+                user_profile = {
+                    "user_id": user_id,
+                    "experience_level": experience_level,
+                    "primary_sport": primary_sport,
+                    "training_frequency": workouts_per_week,
+                    "session_duration": time_per_workout,
+                    "goals": [plan_goal]
+                }
+            
+            # Generate the intelligent workout plan
+            workout_plan = self.planner.generate_intelligent_plan(
+                user_profile=user_profile,
+                sports_profile=sports_profile,
+                duration_weeks=duration_weeks,
+                current_phase=training_phase
+            )
+            
+            # Add plan name before saving
+            workout_plan["plan_name"] = plan_name
+            
+            # Save th
+
+
+
+
+import sqlite3 import json from datetime import datetime class ExerciseDatabase: def __init__(self, db_path): """Initialize the database connection""" self.conn = sqlite3.connect(db_path) self.conn.row_factory = sqlite3.Row self.cursor = self.conn.cursor()
+
+
+import streamlit as st import pandas as pd import json import hashlib from datetime import datetime, timedelta from exercise_utils import ExerciseDatabase from workout_planner import WorkoutPlanner from WorkoutGenerator import WorkoutGenerator # Initialize session state for user management if 'user
+
+
+import streamlit as st import pandas as pd import json import hashlib from datetime import datetime, timedelta from exercise_utils import ExerciseDatabase from workout_planner import WorkoutPlanner from WorkoutGenerator import WorkoutGenerator # Initialize session state for user management if 'user
+
+
+import logging from typing import Dict, List, Tuple, Any, Optional, Union from datetime import datetime class WorkoutGenerator: def __init__(self, db, planner, engine): """Initialize the workout generator with database and engine dependencies.""" self.db = db self.planne
+
+
+import sqlite3 import json from datetime import datetime class ExerciseDatabase: def __init__(self, db_path): """Initialize the database connection""" self.conn = sqlite3.connect(db_path) self.conn.row_factory = sqlite3.Row self.cursor = self.conn.cursor()
+
+
+import sqlite3 import json import datetime import logging from typing import Dict, List, Any, Tuple, Optional class WorkoutPlanner: def __init__(self, db_connection=None, db_path='fitness.db'): """ Initialize the workout planner with a database connection. Args:
+
+
+
